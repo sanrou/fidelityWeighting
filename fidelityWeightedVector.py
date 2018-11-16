@@ -8,22 +8,23 @@ Generate fidelity weighting vector
 """
 
 import scipy
-from scipy import signal
+from scipy import genfromtxt, signal
 from scipy.linalg import norm
 from scipy.random import randn
 
 
 """Load source identities, forward model, and inverse operators. Commented
 out hard coded values are there for testing."""
-fileSourceIdentities = 'sourceIdentities.csv'
-fileForwardOperator = 'forwardSolution.csv'
-fileInverseOperator = 'inverseSolution.csv'
+fpath = '/some/directory'
+fname_source_identities = fpath + '/sourceIdentities.csv'
+fname_forward_operator = fpath + '/forwardSolution.csv'
+fname_inverse_operator = fpath + '/inverseSolution.csv'
 
-sourceIdentities = scipy.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=',')     # Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+sourceIdentities = genfromtxt(fname_source_identities, dtype='int32', delimiter=',')     # Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
 # sourceIdentities = [0, 1, 2, 1, -1]  # Zero as ID doesn't work if parcel not belonging to any parcel is given zero value. There could be sources not in any parcel. Sparce parcels that is. Should initialize those to -1 or Nan.
-forwardOperator = scipy.matrix(scipy.genfromtxt(fileForwardOperator, dtype='float', delimiter=','))
+forwardOperator = scipy.matrix(genfromtxt(fname_forward_operator, dtype='float', delimiter=','))
 # forwardOperator = scipy.matrix('1 2 3 2 1; 4 5 6 5 4')             # sensors x sources
-inverseOperator = scipy.matrix(scipy.genfromtxt(fileInverseOperator, dtype='float', delimiter=','))
+inverseOperator = scipy.matrix(genfromtxt(fname_inverse_operator, dtype='float', delimiter=','))
 # inverseOperator = scipy.matrix('1 -1; 2 2; -1 -3; 1 2; 2 1')       # sources x sensors
 
 
