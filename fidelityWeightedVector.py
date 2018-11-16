@@ -29,21 +29,21 @@ inverseOperator = scipy.matrix(scipy.genfromtxt(fileInverseOperator, dtype='floa
 
 
 """Generate oscillatory parcel signals."""
-numberParcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-negative values == max+1. This is expected in the code.
+n_parcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-negative values == max+1. This is expected in the code.
 
-timeOutput = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
-timeCut = 20    # Samples to remove from ends to get rid of border effects
-timeGenerate = timeOutput + 2*timeCut
+time_output = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
+time_cut = 20    # Samples to remove from ends to get rid of border effects
+time_generate = time_output + 2*time_cut
 
 
 widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider span.
-parcelTimeSeries = randn(numberParcels, timeGenerate)  # Generate random signal
+parcelTimeSeries = randn(n_parcels, time_generate)  # Generate random signal
 
-for i in range(numberParcels):
+for i in range(n_parcels):
     parcelTimeSeries[i] = signal.cwt(parcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
 
 parcelTimeSeries = signal.hilbert(parcelTimeSeries)     # Hilbert transform. Get analytic signal.
-parcelTimeSeries = parcelTimeSeries[:, timeCut:-timeCut]    # Cut off borders
+parcelTimeSeries = parcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
 
 
 
@@ -75,7 +75,7 @@ for i, identity in enumerate(sourceIdentities):              # Compute cPLV only
     if (sourceIdentities[i] >= 0):     # Don't compute negative values. These should be sources not belonging to any parcel.
         cPLVArray[i] = scipy.sum((scipy.asarray(parcelTimeSeries[identity])) * scipy.conjugate(scipy.asarray(sourceTimeSeries[i])))
 
-cPLVArray /= timeOutput    # Normalize by samples. For debugging. Output doesn't change even if you don't do this.
+cPLVArray /= time_output    # Normalize by samples. For debugging. Output doesn't change even if you don't do this.
 
 
 """Get weights and flip. This could be the output."""
@@ -90,7 +90,7 @@ to match original inv op's norm."""
 weightedInvOp = scipy.eye(weights.shape[0]) * weights * inverseOperator      # Multiply sensor dimension in inverseOperator by weight. This one would be the un-normalized operator.
 
 weightsNormalized = scipy.zeros(len(weights))  # Initialize norm normalized weights. Maybe not necessary.
-for parcel in range(numberParcels):       # Normalize parcel level norms. 
+for parcel in range(n_parcels):       # Normalize parcel level norms. 
     ii = [i for i, source in enumerate(sourceIdentities) if source == parcel]    # Index sources belonging to parcel
     weightsNormalized[ii] = weights[ii] * (norm(inverseOperator[ii]) / norm(weightedInvOp[ii]))   # Normalize per parcel.
 
@@ -107,15 +107,15 @@ and normal inverse models.
 Make parcel and sensor time series. Separate series to avoid overfitted
 estimation.
 """
-samplesSubset = 5000 + 2*timeCut
+samplesSubset = 5000 + 2*time_cut
 
-checkParcelTimeSeries = randn(numberParcels, samplesSubset)  # Generate random signal
+checkParcelTimeSeries = randn(n_parcels, samplesSubset)  # Generate random signal
 
-for i in range(numberParcels):
+for i in range(n_parcels):
     checkParcelTimeSeries[i] = signal.cwt(checkParcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
 
 checkParcelTimeSeries = signal.hilbert(checkParcelTimeSeries)     # Hilbert transform. Get analytic signal.
-checkParcelTimeSeries = checkParcelTimeSeries[:, timeCut:-timeCut]    # Cut off borders
+checkParcelTimeSeries = checkParcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
 
 # Change to amplitude 1, keep angle using Euler's formula.
 checkParcelTimeSeries = scipy.exp(1j*(scipy.asmatrix(scipy.angle(checkParcelTimeSeries))))
@@ -136,14 +136,14 @@ sensorTimeSeries = forwardOperator * checkSourceTimeSeries
 only a time subset as the memory use is quite large."""
 
 # Binary matrix of sources belonging to parcels
-sourceParcelMatrix = scipy.zeros((numberParcels, len(sourceIdentities)), dtype=scipy.int8)
+sourceParcelMatrix = scipy.zeros((n_parcels, len(sourceIdentities)), dtype=scipy.int8)
 for i,identity in enumerate(sourceIdentities):
     if (identity >= 0):     # Don't place negative values. These should be sources not belonging to any parcel.
         sourceParcelMatrix[identity, i] = 1
 
 
-parcelPLVW = scipy.zeros(numberParcels, dtype=scipy.float32)  # For the weighted inverse operator
-parcelPLVO = scipy.zeros(numberParcels, dtype=scipy.float32)  # For the original inverse operator
+parcelPLVW = scipy.zeros(n_parcels, dtype=scipy.float32)  # For the weighted inverse operator
+parcelPLVO = scipy.zeros(n_parcels, dtype=scipy.float32)  # For the original inverse operator
 
 
 estimatedSourceSeriesW = weightedInvOp   * sensorTimeSeries     # Weighted and original estimated source time series
@@ -154,7 +154,7 @@ estimatedSourceSeriesW = scipy.exp(1j*(scipy.asmatrix(scipy.angle(estimatedSourc
 estimatedSourceSeriesO = scipy.exp(1j*(scipy.asmatrix(scipy.angle(estimatedSourceSeriesO))))
 
 
-for i in range(numberParcels):
+for i in range(n_parcels):
     A = scipy.ravel(checkParcelTimeSeries[i, :])                                        # True simulated parcel time series
     nSources = scipy.sum(sourceParcelMatrix[i, :])
     B = scipy.ravel((sourceParcelMatrix[i, :]) * estimatedSourceSeriesW) / nSources      # Estimated      parcel time series
