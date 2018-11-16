@@ -115,7 +115,7 @@ and normal inverse models.
 Make parcel and sensor time series. Separate series to avoid overfitted
 estimation.
 """
-samplesSubset = 5000 + 2*time_cut
+samplesSubset = 10000 + 2*time_cut
 
 checkParcelTimeSeries = randn(n_parcels, samplesSubset)  # Generate random signal
 
