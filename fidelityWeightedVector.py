@@ -8,7 +8,7 @@ Generate fidelity weighting vector
 """
 
 import scipy
-from scipy import genfromtxt, signal
+from scipy import asmatrix, genfromtxt, signal
 from scipy.linalg import norm
 from scipy.random import randn
 
@@ -72,8 +72,8 @@ sourceTimeSeries = inverseOperator*(forwardOperator * sourceTimeSeries)
 
 
 """Change to amplitude 1, keep angle using Euler's formula."""
-sourceTimeSeries = scipy.exp(1j*(scipy.asmatrix(scipy.angle(sourceTimeSeries))))
-parcelTimeSeries = scipy.exp(1j*(scipy.asmatrix(scipy.angle(parcelTimeSeries))))
+sourceTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(sourceTimeSeries))))
+parcelTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(parcelTimeSeries))))
 
 
 """Get cPLV needed for flips and weighting."""
@@ -126,7 +126,7 @@ checkParcelTimeSeries = signal.hilbert(checkParcelTimeSeries)     # Hilbert tran
 checkParcelTimeSeries = checkParcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
 
 # Change to amplitude 1, keep angle using Euler's formula.
-checkParcelTimeSeries = scipy.exp(1j*(scipy.asmatrix(scipy.angle(checkParcelTimeSeries))))
+checkParcelTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(checkParcelTimeSeries))))
 
 
 
@@ -158,8 +158,8 @@ estimatedSourceSeriesW = weightedInvOp   * sensorTimeSeries     # Weighted and o
 estimatedSourceSeriesO = inverseOperator * sensorTimeSeries
 
 """Change to amplitude 1, keep angle using Euler's formula."""
-estimatedSourceSeriesW = scipy.exp(1j*(scipy.asmatrix(scipy.angle(estimatedSourceSeriesW))))
-estimatedSourceSeriesO = scipy.exp(1j*(scipy.asmatrix(scipy.angle(estimatedSourceSeriesO))))
+estimatedSourceSeriesW = scipy.exp(1j*(asmatrix(scipy.angle(estimatedSourceSeriesW))))
+estimatedSourceSeriesO = scipy.exp(1j*(asmatrix(scipy.angle(estimatedSourceSeriesO))))
 
 
 for i in range(n_parcels):
