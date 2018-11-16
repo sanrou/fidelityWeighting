@@ -57,7 +57,7 @@ parcelTimeSeries = parcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
 
 
 """Clone parcel time series to source time series."""
-sourceTimeSeries = 1j* scipy.zeros((len(sourceIdentities), int(parcelTimeSeries.shape[1])), dtype=float)  # Zeros (complex) sources x samples
+sourceTimeSeries = scipy.zeros((len(sourceIdentities), int(parcelTimeSeries.shape[1])), dtype='complex')  # Zeros (complex) sources x samples
 
 for i, identity in enumerate(sourceIdentities):              # i-teration and identity
     if (identity > -1):                                       # -1 as identity means source does not belong to any parcel. Other negative values should not really be there.
@@ -77,7 +77,7 @@ parcelTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(parcelTimeSeries))))
 
 
 """Get cPLV needed for flips and weighting."""
-cPLVArray = 1j* scipy.zeros(len(sourceIdentities), dtype=float)   # Initialize as zeros (complex). 
+cPLVArray = scipy.zeros(len(sourceIdentities), dtype='complex')   # Initialize as zeros (complex). 
 
 for i, identity in enumerate(sourceIdentities):              # Compute cPLV only of parcel source pairs of sources that belong to that parcel. One source belong to only one parcel.
     if (sourceIdentities[i] >= 0):     # Don't compute negative values. These should be sources not belonging to any parcel.
@@ -131,7 +131,7 @@ checkParcelTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(checkParcelTimeSeries
 
 
 ## Clone parcel time series to source time series
-checkSourceTimeSeries = 1j* scipy.zeros((len(sourceIdentities), int(checkParcelTimeSeries.shape[1])), dtype=float)  # Zeros (complex) sources x samples
+checkSourceTimeSeries = scipy.zeros((len(sourceIdentities), int(checkParcelTimeSeries.shape[1])), dtype='complex')  # Zeros (complex) sources x samples
 
 for i,identity in enumerate(sourceIdentities):              # i-teration and identity
     if (identity > -1):                                       # -1 as identity means source does not belong to any parcel. Other negative values should not really be there.
