@@ -134,7 +134,6 @@ sensorTimeSeries = forwardOperator * checkSourceTimeSeries
 
 """Correlations between inversed sensorTimeSeries and sourceTimeSeries. Use
 only a time subset as the memory use is quite large."""
-#from scipy.stats.stats import pearsonr
 
 # Binary matrix of sources belonging to parcels
 sourceParcelMatrix = scipy.zeros((numberParcels, len(sourceIdentities)), dtype=scipy.int8)
@@ -142,17 +141,10 @@ for i,identity in enumerate(sourceIdentities):
     if (identity >= 0):     # Don't place negative values. These should be sources not belonging to any parcel.
         sourceParcelMatrix[identity, i] = 1
 
-# for each parcel:
-#   correlation(checkParcelTimeSeries, currentParcelsSourcesBinary x invOp x sensorTimeSeries)
-
-# cPLV = scipy.mean((scipy.asarray(parcelTimeSeries[identity])) * scipy.conjugate(scipy.asarray(sourceTimeSeries[i])))
 
 parcelPLVW = scipy.zeros(numberParcels, dtype=scipy.float32)  # For the weighted inverse operator
 parcelPLVO = scipy.zeros(numberParcels, dtype=scipy.float32)  # For the original inverse operator
 
-#for i in range(numberParcels):
-#    parcelPLVW[i] = pearsonr( scipy.ravel(checkParcelTimeSeries[i,0:samplesSubset]), scipy.ravel((sourceParcelMatrix[i,:, scipy.newaxis]).T * weightedInvOp   * sensorTimeSeries[:,0:samplesSubset]) )[0]
-#    parcelPLVO[i] = pearsonr( scipy.ravel(checkParcelTimeSeries[i,0:samplesSubset]), scipy.ravel((sourceParcelMatrix[i,:, scipy.newaxis]).T * inverseOperator * sensorTimeSeries[:,0:samplesSubset]) )[0]
 
 estimatedSourceSeriesW = weightedInvOp   * sensorTimeSeries     # Weighted and original estimated source time series
 estimatedSourceSeriesO = inverseOperator * sensorTimeSeries
