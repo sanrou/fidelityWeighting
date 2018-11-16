@@ -7,9 +7,10 @@ Generate fidelity weighting vector
 @author: Santeri Rouhinen
 """
 
-
 import scipy
 from scipy import signal
+from scipy.linalg import norm
+from scipy.random import randn
 
 
 ########## Load source identities, forward model, and inverse operators. Commented out hard coded values are there for testing.
@@ -35,7 +36,7 @@ timeGenerate    = timeOutput + 2*timeCut
 
 
 widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider span.
-parcelTimeSeries = scipy.random.randn(numberParcels, timeGenerate)  # Generate random signal
+parcelTimeSeries = randn(numberParcels, timeGenerate)  # Generate random signal
 
 for i in range(numberParcels):
     parcelTimeSeries[i] = signal.cwt(parcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
@@ -97,10 +98,10 @@ weightedInvOp = scipy.eye(weights.shape[0])*weights * inverseOperator      # Mul
 weightsNormalized = scipy.zeros(len(weights))  # Initialize norm normalized weights. Maybe not necessary.
 for parcel in range(numberParcels):       # Normalize parcel level norms. 
     ii = [i for i,source in enumerate(sourceIdentities) if source == parcel]    # Index sources belonging to parcel
-    weightsNormalized[ii] = weights[ii] * (scipy.linalg.norm(inverseOperator[ii]) / scipy.linalg.norm(weightedInvOp[ii]))   # Normalize per parcel.
+    weightsNormalized[ii] = weights[ii] * (norm(inverseOperator[ii]) / norm(weightedInvOp[ii]))   # Normalize per parcel.
 
 weightedInvOp = scipy.eye(weightsNormalized.shape[0])*weightsNormalized * inverseOperator   # Parcel level normalized operator.
-weightedInvOp *= scipy.linalg.norm(inverseOperator) / scipy.linalg.norm(scipy.nan_to_num(weightedInvOp))   # Operator level normalized operator. If there are sources not in any parcel weightedInvOp gets Nan values due to normalizations.
+weightedInvOp *= norm(inverseOperator) / norm(scipy.nan_to_num(weightedInvOp))   # Operator level normalized operator. If there are sources not in any parcel weightedInvOp gets Nan values due to normalizations.
 weightedInvOp = scipy.nan_to_num(weightedInvOp)
 
 
@@ -112,7 +113,7 @@ weightedInvOp = scipy.nan_to_num(weightedInvOp)
 # Make parcel and sensor time series. Separate series to avoid overfitted estimation.
 samplesSubset = 5000 + 2*timeCut
 
-checkParcelTimeSeries = scipy.random.randn(numberParcels, samplesSubset)  # Generate random signal
+checkParcelTimeSeries = randn(numberParcels, samplesSubset)  # Generate random signal
 
 for i in range(numberParcels):
     checkParcelTimeSeries[i] = signal.cwt(checkParcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
