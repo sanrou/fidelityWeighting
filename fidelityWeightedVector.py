@@ -76,14 +76,8 @@ time_generate = time_output + 2*time_cut
 parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
 
 """Clone parcel time series to source time series."""
-sourceTimeSeries = scipy.zeros((len(sourceIdentities), int(parcelTimeSeries.shape[1])), dtype='complex')  # Zeros (complex) sources x samples
-
-for i, identity in enumerate(sourceIdentities):              # i-teration and identity
-    if (identity > -1):                                       # -1 as identity means source does not belong to any parcel. Other negative values should not really be there.
-        sourceTimeSeries[i] = parcelTimeSeries[identity]    # Clone parcel time series to source space. 
-
-checkSourceTimeSeries = scipy.real(sourceTimeSeries[:])    # For checking
-
+sourceTimeSeries = parcelTimeSeries[sourceIdentities]
+sourceTimeSeries[sourceIdentities < 0] = 0
 
 
 """Forward then inverse model source series."""
@@ -144,11 +138,8 @@ checkParcelTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(checkParcelTimeSeries
 
 
 ## Clone parcel time series to source time series
-checkSourceTimeSeries = scipy.zeros((len(sourceIdentities), int(checkParcelTimeSeries.shape[1])), dtype='complex')  # Zeros (complex) sources x samples
-
-for i,identity in enumerate(sourceIdentities):              # i-teration and identity
-    if (identity > -1):                                       # -1 as identity means source does not belong to any parcel. Other negative values should not really be there.
-        checkSourceTimeSeries[i] = checkParcelTimeSeries[identity]    # Clone parcel time series to source space. 
+checkSourceTimeSeries = checkParcelTimeSeries[sourceIdentities]
+checkSourceTimeSeries[sourceIdentities < 0] = 0
 
 sensorTimeSeries = forwardOperator * checkSourceTimeSeries
 
