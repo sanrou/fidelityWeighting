@@ -190,6 +190,8 @@ for i in range(n_parcels):
     A = scipy.ravel(checkParcelTimeSeries[i, :])                                        # True simulated parcel time series
     nSources = scipy.sum(sourceParcelMatrix[i, :])
     B = scipy.ravel((sourceParcelMatrix[i, :]) * estimatedSourceSeriesW) / nSources      # Estimated      parcel time series
+    B = np.array(scipy.exp(1j*(scipy.asmatrix(scipy.angle(B)))))                       # normalize!  
     C = scipy.ravel((sourceParcelMatrix[i, :]) * estimatedSourceSeriesO) / nSources
+    C = np.array(scipy.exp(1j*(scipy.asmatrix(scipy.angle(C)))))                       # normalize!
     parcelPLVW[i] = scipy.mean(A * scipy.conjugate(B))
     parcelPLVO[i] = scipy.mean(A * scipy.conjugate(C))
