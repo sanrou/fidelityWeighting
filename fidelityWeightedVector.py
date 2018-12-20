@@ -94,8 +94,8 @@ n_parcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-neg
 time_output = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
 time_cut = 20    # Samples to remove from ends to get rid of border effects
 widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider span.
-
 time_generate = time_output + 2*time_cut
+samplesSubset = 10000 + 2*time_cut
 
 parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
 
@@ -103,6 +103,7 @@ parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
 sourceTimeSeries = parcelTimeSeries[sourceIdentities]
 sourceTimeSeries[sourceIdentities < 0] = 0
 
+checkSourceTimeSeries = scipy.real(sourceTimeSeries[:])
 
 """Forward then inverse model source series."""
 sourceTimeSeries = inverseOperator*(forwardOperator * sourceTimeSeries)
@@ -148,7 +149,6 @@ and normal inverse models.
 Make parcel and sensor time series. Separate series to avoid overfitted
 estimation.
 """
-samplesSubset = 10000 + 2*time_cut
 
 checkParcelTimeSeries = make_series(n_parcels, samplesSubset, time_cut, widths)
 
