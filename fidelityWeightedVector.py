@@ -54,6 +54,11 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
         for handling edge artefacts.
     widths : ndarray
         Widths to use for the wavelet transform.
+
+    Output arguments:
+    =================
+    s : ndarray
+        Simulated oscillating parcel time-series.
     """
     s = randn(n_parcels, n_samples+2*n_cut_samples)
 
@@ -192,5 +197,3 @@ for i in range(n_parcels):
     C = scipy.ravel((sourceParcelMatrix[i, :]) * estimatedSourceSeriesO) / nSources
     parcelPLVW[i] = scipy.mean(A * scipy.conjugate(B))
     parcelPLVO[i] = scipy.mean(A * scipy.conjugate(C))
-
-
