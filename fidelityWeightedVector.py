@@ -37,23 +37,50 @@ inverseOperator = scipy.matrix(genfromtxt(fname_inverse_operator,
 
 
 """Generate oscillatory parcel signals."""
+
+def make_series(n_parcels, n_samples, n_cut_samples, widths):
+    """Function for generating oscillating parcel signals.
+
+    Input arguments:
+    ================
+    n_parcels : int
+        Number of source-space parcels or labels.
+    n_samples : int
+        Length of the generated time-series in number of samples.
+    n_cut_samples : int
+        Number of temporary extra samples at each end of the signal
+        for handling edge artefacts.
+    widths : ndarray
+        Widths to use for the wavelet transform.
+    """
+    s = randn(n_parcels, n_samples+n_cut_samples)
+
+    for i in np.arange(0, n_parcels):
+        s[i, :] = signal.cwt(s[i, :], signal.ricker, widths)
+
+    s = signal.hilbert(s)
+    s = s[:, n_cut_samples:-n_cut_samples]
+
+    return s
+
 n_parcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-negative values == max+1. This is expected in the code.
 
 time_output = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
 time_cut = 20    # Samples to remove from ends to get rid of border effects
+widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider span.
+
 time_generate = time_output + 2*time_cut
 
+parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
 
-widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider span.
-parcelTimeSeries = randn(n_parcels, time_generate)  # Generate random signal
-
-for i in range(n_parcels):
-    parcelTimeSeries[i] = signal.cwt(parcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
-
-parcelTimeSeries = signal.hilbert(parcelTimeSeries)     # Hilbert transform. Get analytic signal.
-parcelTimeSeries = parcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
-
-
+## to be removed
+##parcelTimeSeries = randn(n_parcels, time_generate)  # Generate random signal
+##
+##for i in range(n_parcels):
+##    parcelTimeSeries[i] = signal.cwt(parcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
+##
+##parcelTimeSeries = signal.hilbert(parcelTimeSeries)     # Hilbert transform. Get analytic signal.
+##parcelTimeSeries = parcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
 
 
 """Clone parcel time series to source time series."""
@@ -117,13 +144,16 @@ estimation.
 """
 samplesSubset = 10000 + 2*time_cut
 
-checkParcelTimeSeries = randn(n_parcels, samplesSubset)  # Generate random signal
+checkParcelTimeSeries = make_series(n_parcels, samplesSubset, time_cut, widths)
 
-for i in range(n_parcels):
-    checkParcelTimeSeries[i] = signal.cwt(checkParcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
-
-checkParcelTimeSeries = signal.hilbert(checkParcelTimeSeries)     # Hilbert transform. Get analytic signal.
-checkParcelTimeSeries = checkParcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
+## to be removed
+##checkParcelTimeSeries = randn(n_parcels, samplesSubset)  # Generate random signal
+##
+##for i in range(n_parcels):
+##    checkParcelTimeSeries[i] = signal.cwt(checkParcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
+##
+##checkParcelTimeSeries = signal.hilbert(checkParcelTimeSeries)     # Hilbert transform. Get analytic signal.
+##checkParcelTimeSeries = checkParcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
 
 # Change to amplitude 1, keep angle using Euler's formula.
 checkParcelTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(checkParcelTimeSeries))))
