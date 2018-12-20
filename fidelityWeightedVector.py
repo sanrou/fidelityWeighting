@@ -9,12 +9,14 @@ Generate fidelity weighting vector
 
 import scipy
 from scipy import asmatrix, genfromtxt, signal
-from scipy.linalg import norm
-from scipy.random import randn
+
+import numpy as np
+from numpy.linalg import norm
+from numpy.random import randn
 
 
 """Load source identities, forward model, and inverse operators."""
-fpath = '/some/directory'
+fpath = '/home/puolival/fidelityWeighting'
 fname_source_identities = fpath + '/sourceIdentities.csv'
 fname_forward_operator = fpath + '/forwardSolution.csv'
 fname_inverse_operator = fpath + '/inverseSolution.csv'
@@ -53,7 +55,7 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
     widths : ndarray
         Widths to use for the wavelet transform.
     """
-    s = randn(n_parcels, n_samples+n_cut_samples)
+    s = randn(n_parcels, n_samples+2*n_cut_samples)
 
     for i in np.arange(0, n_parcels):
         s[i, :] = signal.cwt(s[i, :], signal.ricker, widths)
@@ -72,16 +74,6 @@ widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider spa
 time_generate = time_output + 2*time_cut
 
 parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
-
-## to be removed
-##parcelTimeSeries = randn(n_parcels, time_generate)  # Generate random signal
-##
-##for i in range(n_parcels):
-##    parcelTimeSeries[i] = signal.cwt(parcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
-##
-##parcelTimeSeries = signal.hilbert(parcelTimeSeries)     # Hilbert transform. Get analytic signal.
-##parcelTimeSeries = parcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
-
 
 """Clone parcel time series to source time series."""
 sourceTimeSeries = scipy.zeros((len(sourceIdentities), int(parcelTimeSeries.shape[1])), dtype='complex')  # Zeros (complex) sources x samples
@@ -145,15 +137,6 @@ estimation.
 samplesSubset = 10000 + 2*time_cut
 
 checkParcelTimeSeries = make_series(n_parcels, samplesSubset, time_cut, widths)
-
-## to be removed
-##checkParcelTimeSeries = randn(n_parcels, samplesSubset)  # Generate random signal
-##
-##for i in range(n_parcels):
-##    checkParcelTimeSeries[i] = signal.cwt(checkParcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
-##
-##checkParcelTimeSeries = signal.hilbert(checkParcelTimeSeries)     # Hilbert transform. Get analytic signal.
-##checkParcelTimeSeries = checkParcelTimeSeries[:, time_cut:-time_cut]    # Cut off borders
 
 # Change to amplitude 1, keep angle using Euler's formula.
 checkParcelTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(checkParcelTimeSeries))))
