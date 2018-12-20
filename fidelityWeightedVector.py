@@ -124,11 +124,7 @@ cPLVArray /= time_output    # Normalize by samples. For debugging. Output doesn'
 
 
 """Get weights and flip. This could be the output."""
-weights = scipy.zeros(len(sourceIdentities))    # Initialize as zeros
-
-for i,cPLV in enumerate(cPLVArray):
-    weights[i] = scipy.real(cPLV)**2 * scipy.sign(scipy.real(cPLV))     # Sign is the flip; weight (real part)^2
-
+weights = scipy.sign(scipy.real(cPLVArray)) * scipy.real(cPLVArray) ** 2
 
 """Create weighted inverse operator and normalize the norm of weighted inv op
 to match original inv op's norm."""
