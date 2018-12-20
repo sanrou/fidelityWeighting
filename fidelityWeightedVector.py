@@ -65,6 +65,25 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
 
     return s
 
+def compute_weighted_operator(fwd, inv, source_identities):
+    """Function for computing a fidelity-weighted inverse operator.
+
+    Input arguments:
+    ================
+    fwd : ndarray
+        The forward operator.
+    inv : ndarray
+        The original inverse operator.
+    source_identities : ndarray
+        Vector mapping sources to parcels or labels.
+
+    Output argument:
+    ================
+    weighted_inv : ndarray
+        The fidelity-weighted inverse operator.
+    """
+    pass
+
 n_parcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-negative values == max+1. This is expected in the code.
 
 time_output = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
