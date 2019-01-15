@@ -107,25 +107,6 @@ def plv(x, y, identities):
     cplv /= time_output # Normalize by samples.
     return cplv
 
-n_parcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-negative values == max+1. This is expected in the code.
-
-time_output = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
-time_cut = 20    # Samples to remove from ends to get rid of border effects
-widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider span.
-time_generate = time_output + 2*time_cut
-samplesSubset = 10000 + 2*time_cut
-
-parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
-
-"""Clone parcel time series to source time series."""
-sourceTimeSeries = parcelTimeSeries[sourceIdentities]
-sourceTimeSeries[sourceIdentities < 0] = 0
-
-checkSourceTimeSeries = scipy.real(sourceTimeSeries[:])
-
-"""Forward then inverse model source series."""
-sourceTimeSeries = inverseOperator*(forwardOperator * sourceTimeSeries)
-
 def _compute_weights(source_series, parcel_series, identities, inverse):
     cPLVArray = plv(source_series, parcel_series, identities)
 
@@ -146,5 +127,24 @@ def _compute_weights(source_series, parcel_series, identities, inverse):
     weightedInvOp *= norm(inverse) / norm(scipy.nan_to_num(weightedInvOp))   # Operator level normalized operator. If there are sources not in any parcel weightedInvOp gets Nan values due to normalizations.
     weightedInvOp = scipy.nan_to_num(weightedInvOp)
     return weightedInvOp
+
+n_parcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-negative values == max+1. This is expected in the code.
+
+time_output = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
+time_cut = 20    # Samples to remove from ends to get rid of border effects
+widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider span.
+time_generate = time_output + 2*time_cut
+samplesSubset = 10000 + 2*time_cut
+
+parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
+
+"""Clone parcel time series to source time series."""
+sourceTimeSeries = parcelTimeSeries[sourceIdentities]
+sourceTimeSeries[sourceIdentities < 0] = 0
+
+checkSourceTimeSeries = scipy.real(sourceTimeSeries[:])
+
+"""Forward then inverse model source series."""
+sourceTimeSeries = inverseOperator*(forwardOperator * sourceTimeSeries)
 
 weightedInvOp = _compute_weights(sourceTimeSeries, parcelTimeSeries, sourceIdentities, inverseOperator)
