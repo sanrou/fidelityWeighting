@@ -116,7 +116,22 @@ def _load_data(fname_identities, fname_forward, fname_inverse):
                                               dtype='float', delimiter=','))
     return sourceIdentities, forwardOperator, inverseOperator
 
-def _extract_operator_data(fwd, inv, labels_pac):
+def _extract_operator_data(fwd, inv, labels_parc):
+    """Function for extracting forward and inverse operator matrices from
+    the MNE-Python forward and inverse data structures, and the assembling
+    the source identity map.
+
+    Input arguments:
+    ================
+    fwd : Forward
+        The forward operator. An instance of the MNE-Python class Forward.
+    inv : Inverse
+        The inverse operator. An instance of the MNE-Python class Inverse.
+    labels_parc : list
+        List of labels belonging to the used parcellation, e.g.
+        Desikan-Killiany or Yeo.
+    """
+
     # read and prepare inv op
     invP         = prepare_inverse_operator(inv,1,1./9.)
     # counterpart to forwardOperator, [sources x sensors]
