@@ -71,17 +71,29 @@ def _compute_weights(source_series, parcel_series, identities, inverse):
 
     """Create weighted inverse operator and normalize the norm of weighted inv op
     to match original inv op's norm."""
-    weightedInvOp = scipy.einsum('ij,i->ij', inverse, weights)      # Multiply sensor dimension in inverseOperator by weight. This one would be the un-normalized operator.
+    """Multiply sensor dimension in inverseOperator by weight. This one would be
+    the un-normalized operator."""
+    weightedInvOp = scipy.einsum('ij,i->ij', inverse, weights)
 
     n_parcels = max(identities) + 1
-    weightsNormalized = scipy.zeros(len(weights))  # Initialize norm normalized weights. Maybe not necessary.
-    for parcel in range(n_parcels):       # Normalize parcel level norms. 
-        ii = [i for i, source in enumerate(identities) if source == parcel]    # Index sources belonging to parcel
-        weightsNormalized[ii] = weights[ii] * (norm(inverse[ii]) / norm(weightedInvOp[ii]))   # Normalize per parcel.
+    """Initialize norm normalized weights. Maybe not necessary."""
+    weightsNormalized = scipy.zeros(len(weights))
+    for parcel in range(n_parcels): # Normalize parcel level norms.
+        # Index sources belonging to parcel
+        ii = [i for i, source in enumerate(identities) if source == parcel]
 
-    weightedInvOp = scipy.einsum('ij,i->ij', inverse, weightsNormalized)   # Parcel level normalized operator.
-    weightedInvOp *= norm(inverse) / norm(scipy.nan_to_num(weightedInvOp))   # Operator level normalized operator. If there are sources not in any parcel weightedInvOp gets Nan values due to normalizations.
+        # Normalize per parcel.
+        weightsNormalized[ii] = weights[ii] * (norm(inverse[ii]) /
+                                               norm(weightedInvOp[ii]))
+
+    """Parcel level normalized operator."""
+    weightedInvOp = scipy.einsum('ij,i->ij', inverse, weightsNormalized)
+
+    """Operator level normalized operator. If there are sources not in any
+    parcel weightedInvOp gets Nan values due to normalizations."""
+    weightedInvOp *= norm(inverse) / norm(scipy.nan_to_num(weightedInvOp))
     weightedInvOp = scipy.nan_to_num(weightedInvOp)
+
     return weightedInvOp
 
 def _load_data(fname_identities, fname_forward, fname_inverse):
@@ -131,17 +143,25 @@ def compute_weighted_operator(fwd=None, inv=None, source_identities=None):
         fname_source_identities, fname_forward, fname_inverse)
 
     """Generate oscillatory parcel signals."""
-    n_parcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-negative values == max+1. This is expected in the code.
 
-    time_output = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
-    time_cut = 20    # Samples to remove from ends to get rid of border effects
-    widths = scipy.arange(5, 6)     # Original values 1, 31. Higher number wider span.
+    """Maybe one should test if unique non-negative values == max+1. This
+    is expected in the code."""
+    n_parcels = max(sourceIdentities) + 1
+
+    """Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few
+    samples will give poor results."""
+    time_output = 30000
+
+    """Samples to remove from ends to get rid of border effects."""
+    time_cut = 20
+
+    """Original values 1, 31. Higher number wider span."""
+    widths = scipy.arange(5, 6)
     time_generate = time_output + 2*time_cut
     samplesSubset = 10000 + 2*time_cut
 
+    """Make and clone parcel time series to source time series."""
     parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
-
-    """Clone parcel time series to source time series."""
     sourceTimeSeries = parcelTimeSeries[sourceIdentities]
     sourceTimeSeries[sourceIdentities < 0] = 0
 
@@ -150,7 +170,8 @@ def compute_weighted_operator(fwd=None, inv=None, source_identities=None):
     """Forward then inverse model source series."""
     sourceTimeSeries = inverseOperator*(forwardOperator * sourceTimeSeries)
 
-    weightedInvOp = _compute_weights(sourceTimeSeries, parcelTimeSeries, sourceIdentities, inverseOperator)
+    weightedInvOp = _compute_weights(sourceTimeSeries, parcelTimeSeries,
+                                     sourceIdentities, inverseOperator)
     return weightedInvOp
 
 
