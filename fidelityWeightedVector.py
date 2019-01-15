@@ -129,14 +129,15 @@ weights = scipy.sign(scipy.real(cPLVArray)) * scipy.real(cPLVArray) ** 2
 
 """Create weighted inverse operator and normalize the norm of weighted inv op
 to match original inv op's norm."""
-weightedInvOp = scipy.eye(weights.shape[0]) * weights * inverseOperator      # Multiply sensor dimension in inverseOperator by weight. This one would be the un-normalized operator.
+weightedInvOp = scipy.einsum('ij,i->ij', inverseOperator, weights)      # Multiply sensor dimension in inverseOperator by weight. This one would be the un-normalized operator.
 
 weightsNormalized = scipy.zeros(len(weights))  # Initialize norm normalized weights. Maybe not necessary.
 for parcel in range(n_parcels):       # Normalize parcel level norms. 
     ii = [i for i, source in enumerate(sourceIdentities) if source == parcel]    # Index sources belonging to parcel
     weightsNormalized[ii] = weights[ii] * (norm(inverseOperator[ii]) / norm(weightedInvOp[ii]))   # Normalize per parcel.
 
-weightedInvOp = scipy.eye(weightsNormalized.shape[0])*weightsNormalized * inverseOperator   # Parcel level normalized operator.
+weightedInvOp = scipy.einsum('ij,i->ij', inverseOperator, weightsNormalized)   # Parcel level normalized operator.
+
 weightedInvOp *= norm(inverseOperator) / norm(scipy.nan_to_num(weightedInvOp))   # Operator level normalized operator. If there are sources not in any parcel weightedInvOp gets Nan values due to normalizations.
 weightedInvOp = scipy.nan_to_num(weightedInvOp)
 
