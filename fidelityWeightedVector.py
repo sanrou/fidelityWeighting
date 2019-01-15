@@ -14,6 +14,8 @@ import numpy as np
 from numpy.linalg import norm
 from numpy.random import randn
 
+from mne.minimum_norm import prepare_inverse_operator
+from mne.minimum_norm.inverse import _assemble_kernel
 
 def make_series(n_parcels, n_samples, n_cut_samples, widths):
     """Function for generating oscillating parcel signals.
@@ -114,6 +116,45 @@ def _load_data(fname_identities, fname_forward, fname_inverse):
                                               dtype='float', delimiter=','))
     return sourceIdentities, forwardOperator, inverseOperator
 
+def _extract_operator_data(fwd, inv, labels_pac):
+    # read and prepare inv op
+    invP         = prepare_inverse_operator(inv,1,1./9.)
+    # counterpart to forwardOperator, [sources x sensors]
+    inv_sol      = assemble_kernel(invP, None, 'MNE', None)[0]
+
+    # get source space
+    src = inv.get('src')
+    vert_lh, vert_rh = src[0].get('vertno'), src[1].get('vertno')
+
+    # get labels, vertices and src-identities
+    src_ident_lh = np.full(len(vert_lh), -1)
+    src_ident_rh = np.full(len(vert_rh), -1)
+
+    # find sources that belong to the left HS labels
+    for l,label in enumerate(labels_parc[:201]):
+        for v in label.vertices:
+            src_ident_lh[np.where(vert_lh == v)] = l
+
+    # find sources that belong to the right HS labels
+    for l,label in enumerate(labels_parc[201:402]):
+        for v in label.vertices:
+            src_ident_rh[np.where(vert_rh == v)] = l
+
+    # fix numbers, so that sources in med. wall and unassigned get value -1
+    # TODO: replace constants with parcel counts etc.
+    src_ident_lh = src_ident_lh -1
+    src_ident_lh[src_ident_lh == -2] = -1
+    src_ident_rh = src_ident_rh + 200
+    src_ident_rh[src_ident_rh == 400] = -1
+    src_ident_rh[src_ident_rh == 199] = -1
+    src_ident = np.concatenate((src_ident_lh,src_ident_rh))
+
+    #### change variable names
+    sourceIdentities = src_ident
+    inverseOperator = inv_sol
+    forwardOperator = fwd['sol']['data'] # sensors x sources
+
+    return sourceIdentities, forwardOperator, inverseOperator
 
 def compute_weighted_operator(fwd=None, inv=None, source_identities=None):
     """Function for computing a fidelity-weighted inverse operator.
