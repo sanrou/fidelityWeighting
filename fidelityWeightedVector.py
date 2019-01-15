@@ -185,23 +185,12 @@ estimatedSourceSeriesO = inverseOperator * sensorTimeSeries
 estimatedSourceSeriesW = scipy.exp(1j*(asmatrix(scipy.angle(estimatedSourceSeriesW))))
 estimatedSourceSeriesO = scipy.exp(1j*(asmatrix(scipy.angle(estimatedSourceSeriesO))))
 
- modeledSeriesO = np.einsum('ij,i->ij',(sourceParcelMatrix * estimatedSourceSeriesO),(1./np.sum(sourceParcelMatrix,1)))   # multiply source matrix with modeled series, then divide for each parcel by the number of its sources
- modeledSeriesO = scipy.exp(1j*(scipy.asmatrix(scipy.angle(modeledSeriesO))))                                             # normalize  
- modeledSeriesW = np.einsum('ij,i->ij',(sourceParcelMatrix * estimatedSourceSeriesW),(1./np.sum(sourceParcelMatrix,1)))   # multiply source matrix with modeled series, then divide for each parcel by the number of its sources
- modeledSeriesW = scipy.exp(1j*(scipy.asmatrix(scipy.angle(modeledSeriesW))))                                             # normalize  
-  
- parcelPLVW = np.abs(np.real(np.einsum('ik,ik->i',checkParcelTimeSeries,np.conj(modeledSeriesW)/10000)))
- parcelPLVO = np.abs(np.real(np.einsum('ik,ik->i',checkParcelTimeSeries,np.conj(modeledSeriesO)/10000)))
- CP_PLV_W   = np.abs(np.real(np.einsum('ik,jk->ij',modeledSeriesW,np.conj(modeledSeriesW))/10000))
- CP_PLV_O   = np.abs(np.real(np.einsum('ik,jk->ij',modeledSeriesO,np.conj(modeledSeriesO))/10000))
+modeledSeriesO = np.einsum('ij,i->ij',(sourceParcelMatrix * estimatedSourceSeriesO),(1./np.sum(sourceParcelMatrix,1)))   # multiply source matrix with modeled series, then divide for each parcel by the number of its sources
+modeledSeriesO = scipy.exp(1j*(scipy.asmatrix(scipy.angle(modeledSeriesO))))                                             # normalize  
+modeledSeriesW = np.einsum('ij,i->ij',(sourceParcelMatrix * estimatedSourceSeriesW),(1./np.sum(sourceParcelMatrix,1)))   # multiply source matrix with modeled series, then divide for each parcel by the number of its sources
+modeledSeriesW = scipy.exp(1j*(scipy.asmatrix(scipy.angle(modeledSeriesW))))                                             # normalize  
 
-
-#  for i in range(n_parcels):
- #   A = scipy.ravel(checkParcelTimeSeries[i, :])                                        # True simulated parcel time series
- #   nSources = scipy.sum(sourceParcelMatrix[i, :])
- #   B = scipy.ravel((sourceParcelMatrix[i, :]) * estimatedSourceSeriesW) / nSources      # Estimated      parcel time series
- #   B = np.array(scipy.exp(1j*(scipy.asmatrix(scipy.angle(B)))))                       # normalize!  
- #   C = scipy.ravel((sourceParcelMatrix[i, :]) * estimatedSourceSeriesO) / nSources
- #   C = np.array(scipy.exp(1j*(scipy.asmatrix(scipy.angle(C)))))                       # normalize!
- #   parcelPLVW[i] = scipy.mean(A * scipy.conjugate(B))
- #   parcelPLVO[i] = scipy.mean(A * scipy.conjugate(C))
+parcelPLVW = np.abs(np.real(np.einsum('ik,ik->i',checkParcelTimeSeries,np.conj(modeledSeriesW)/10000)))
+parcelPLVO = np.abs(np.real(np.einsum('ik,ik->i',checkParcelTimeSeries,np.conj(modeledSeriesO)/10000)))
+CP_PLV_W   = np.abs(np.real(np.einsum('ik,jk->ij',modeledSeriesW,np.conj(modeledSeriesW))/10000))
+CP_PLV_O   = np.abs(np.real(np.einsum('ik,jk->ij',modeledSeriesO,np.conj(modeledSeriesO))/10000))
