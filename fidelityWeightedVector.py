@@ -108,21 +108,25 @@ checkSourceTimeSeries = scipy.real(sourceTimeSeries[:])
 """Forward then inverse model source series."""
 sourceTimeSeries = inverseOperator*(forwardOperator * sourceTimeSeries)
 
+def plv(x, y, identities):
+    """Change to amplitude 1, keep angle using Euler's formula."""
+    x = scipy.exp(1j*(asmatrix(scipy.angle(x))))
+    y = scipy.exp(1j*(asmatrix(scipy.angle(y))))
 
-"""Change to amplitude 1, keep angle using Euler's formula."""
-sourceTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(sourceTimeSeries))))
-parcelTimeSeries = scipy.exp(1j*(asmatrix(scipy.angle(parcelTimeSeries))))
+    """Get cPLV needed for flips and weighting."""
+    cplv = scipy.zeros(len(identities), dtype='complex')
 
+    for i, identity in enumerate(identities):
+        """Compute cPLV only of parcel source pairs of sources that
+        belong to that parcel. One source belong to only one parcel."""
+        if (identities[i] >= 0):
+            cplv[i] = (scipy.sum((scipy.asarray(y[identity])) *
+                       scipy.conjugate(scipy.asarray(x[i]))))
 
-"""Get cPLV needed for flips and weighting."""
-cPLVArray = scipy.zeros(len(sourceIdentities), dtype='complex')   # Initialize as zeros (complex). 
+    cplv /= time_output # Normalize by samples.
+    return cplv
 
-for i, identity in enumerate(sourceIdentities):              # Compute cPLV only of parcel source pairs of sources that belong to that parcel. One source belong to only one parcel.
-    if (sourceIdentities[i] >= 0):     # Don't compute negative values. These should be sources not belonging to any parcel.
-        cPLVArray[i] = scipy.sum((scipy.asarray(parcelTimeSeries[identity])) * scipy.conjugate(scipy.asarray(sourceTimeSeries[i])))
-
-cPLVArray /= time_output    # Normalize by samples. For debugging. Output doesn't change even if you don't do this.
-
+cPLVArray = plv(sourceTimeSeries, parcelTimeSeries, sourceIdentities)
 
 """Get weights and flip. This could be the output."""
 weights = scipy.sign(scipy.real(cPLVArray)) * scipy.real(cPLVArray) ** 2
