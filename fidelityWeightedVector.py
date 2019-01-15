@@ -89,6 +89,24 @@ def compute_weighted_operator(fwd, inv, source_identities):
     """
     pass
 
+def plv(x, y, identities):
+    """Change to amplitude 1, keep angle using Euler's formula."""
+    x = scipy.exp(1j*(asmatrix(scipy.angle(x))))
+    y = scipy.exp(1j*(asmatrix(scipy.angle(y))))
+
+    """Get cPLV needed for flips and weighting."""
+    cplv = scipy.zeros(len(identities), dtype='complex')
+
+    for i, identity in enumerate(identities):
+        """Compute cPLV only of parcel source pairs of sources that
+        belong to that parcel. One source belong to only one parcel."""
+        if (identities[i] >= 0):
+            cplv[i] = (scipy.sum((scipy.asarray(y[identity])) *
+                       scipy.conjugate(scipy.asarray(x[i]))))
+
+    cplv /= time_output # Normalize by samples.
+    return cplv
+
 n_parcels = max(sourceIdentities) + 1  # Maybe one should test if unique non-negative values == max+1. This is expected in the code.
 
 time_output = 30000   # Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few samples will give poor results.
@@ -107,24 +125,6 @@ checkSourceTimeSeries = scipy.real(sourceTimeSeries[:])
 
 """Forward then inverse model source series."""
 sourceTimeSeries = inverseOperator*(forwardOperator * sourceTimeSeries)
-
-def plv(x, y, identities):
-    """Change to amplitude 1, keep angle using Euler's formula."""
-    x = scipy.exp(1j*(asmatrix(scipy.angle(x))))
-    y = scipy.exp(1j*(asmatrix(scipy.angle(y))))
-
-    """Get cPLV needed for flips and weighting."""
-    cplv = scipy.zeros(len(identities), dtype='complex')
-
-    for i, identity in enumerate(identities):
-        """Compute cPLV only of parcel source pairs of sources that
-        belong to that parcel. One source belong to only one parcel."""
-        if (identities[i] >= 0):
-            cplv[i] = (scipy.sum((scipy.asarray(y[identity])) *
-                       scipy.conjugate(scipy.asarray(x[i]))))
-
-    cplv /= time_output # Normalize by samples.
-    return cplv
 
 cPLVArray = plv(sourceTimeSeries, parcelTimeSeries, sourceIdentities)
 
