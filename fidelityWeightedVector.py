@@ -135,7 +135,7 @@ def _extract_operator_data(fwd, inv, labels_parc):
     # read and prepare inv op
     invP         = prepare_inverse_operator(inv,1,1./9.)
     # counterpart to forwardOperator, [sources x sensors]
-    inv_sol      = assemble_kernel(invP, None, 'MNE', None)[0]
+    inv_sol      = _assemble_kernel(invP, None, 'MNE', None)[0]
 
     # get source space
     src = inv.get('src')
