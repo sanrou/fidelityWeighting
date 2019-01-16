@@ -133,25 +133,25 @@ def _extract_operator_data(fwd, inv, labels_parc):
     """
 
     # read and prepare inv op
-    invP         = prepare_inverse_operator(inv,1,1./9.)
+    invP = prepare_inverse_operator(inv, 1, 1./9, 'MNE')
     # counterpart to forwardOperator, [sources x sensors]
-    inv_sol      = _assemble_kernel(invP, None, 'MNE', None)[0]
+    inv_sol = _assemble_kernel(invP, None, 'MNE', None)[0]
 
     # get source space
     src = inv.get('src')
     vert_lh, vert_rh = src[0].get('vertno'), src[1].get('vertno')
 
     # get labels, vertices and src-identities
-    src_ident_lh = np.full(len(vert_lh), -1)
-    src_ident_rh = np.full(len(vert_rh), -1)
+    src_ident_lh = np.full(len(vert_lh), -1, dtype='int')
+    src_ident_rh = np.full(len(vert_rh), -1, dtype='int')
 
     # find sources that belong to the left HS labels
-    for l,label in enumerate(labels_parc[:201]):
+    for l, label in enumerate(labels_parc[:201]):
         for v in label.vertices:
             src_ident_lh[np.where(vert_lh == v)] = l
 
     # find sources that belong to the right HS labels
-    for l,label in enumerate(labels_parc[201:402]):
+    for l, label in enumerate(labels_parc[201:402]):
         for v in label.vertices:
             src_ident_rh[np.where(vert_rh == v)] = l
 
@@ -171,7 +171,7 @@ def _extract_operator_data(fwd, inv, labels_parc):
 
     return sourceIdentities, forwardOperator, inverseOperator
 
-def compute_weighted_operator(fwd=None, inv=None, source_identities=None):
+def compute_weighted_operator(fwd, inv, source_identities):
     """Function for computing a fidelity-weighted inverse operator.
 
     Input arguments:
@@ -189,20 +189,12 @@ def compute_weighted_operator(fwd=None, inv=None, source_identities=None):
         The fidelity-weighted inverse operator.
     """
 
-    """Load source identities, forward model, and inverse operators."""
-    fpath = '/home/puolival/fidelityWeighting'
-    fname_source_identities = fpath + '/sourceIdentities.csv'
-    fname_forward = fpath + '/forwardSolution.csv'
-    fname_inverse = fpath + '/inverseSolution.csv'
-
-    sourceIdentities, forwardOperator, inverseOperator = _load_data(
-        fname_source_identities, fname_forward, fname_inverse)
 
     """Generate oscillatory parcel signals."""
 
     """Maybe one should test if unique non-negative values == max+1. This
     is expected in the code."""
-    n_parcels = max(sourceIdentities) + 1
+    n_parcels = max(source_identities) + 1
 
     """Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few
     samples will give poor results."""
@@ -217,17 +209,23 @@ def compute_weighted_operator(fwd=None, inv=None, source_identities=None):
     samplesSubset = 10000 + 2*time_cut
 
     """Make and clone parcel time series to source time series."""
+    fwd, inv = asmatrix(fwd), asmatrix(inv)
     parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
-    sourceTimeSeries = parcelTimeSeries[sourceIdentities]
-    sourceTimeSeries[sourceIdentities < 0] = 0
-
-    checkSourceTimeSeries = scipy.real(sourceTimeSeries[:])
+    sourceTimeSeries = parcelTimeSeries[source_identities]
+    sourceTimeSeries[source_identities < 0] = 0
 
     """Forward then inverse model source series."""
-    sourceTimeSeries = inverseOperator*(forwardOperator * sourceTimeSeries)
+    sourceTimeSeries = inv * (fwd * sourceTimeSeries)
 
     weightedInvOp = _compute_weights(sourceTimeSeries, parcelTimeSeries,
-                                     sourceIdentities, inverseOperator)
+                                     source_identities, inv)
     return weightedInvOp
 
+def weight_inverse_operator(fwd, inv, labels):
 
+    # ind_bads = [i for i, ch in enumerate(inv['info']['ch_names'])
+    #            if ch in inv['info']['bads']]
+
+    identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels)
+    weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
+                                             identities)
