@@ -223,9 +223,14 @@ def compute_weighted_operator(fwd, inv, source_identities):
 
 def weight_inverse_operator(fwd, inv, labels):
 
-    # ind_bads = [i for i, ch in enumerate(inv['info']['ch_names'])
-    #            if ch in inv['info']['bads']]
-
     identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels)
+
+    """If there are bad channels the corresponding rows can be missing
+    from the forward matrix. Not sure if the same can occur for the
+    inverse."""
+    ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
+                      if ch not in fwd['info']['bads']])
+    fwd_mat = fwd_mat[ind, :]
+
     weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
                                              identities)
