@@ -1,3 +1,11 @@
+"""Script for testing the fidelity weighting.
+
+References:
+
+The source-space simulation code is largely based on example code available
+from the MNE-python web page.
+"""
+
 # -*- encoding: utf-8 -*-
 from fidelity import weight_inverse_operator
 
