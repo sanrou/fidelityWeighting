@@ -14,7 +14,6 @@ import numpy as np
 from numpy.linalg import norm
 from numpy.random import randn
 
-from mne.minimum_norm import prepare_inverse_operator
 from mne.minimum_norm.inverse import _assemble_kernel
 
 def make_series(n_parcels, n_samples, n_cut_samples, widths):
@@ -132,10 +131,9 @@ def _extract_operator_data(fwd, inv, labels_parc):
         Desikan-Killiany or Yeo.
     """
 
-    # read and prepare inv op
-    invP = prepare_inverse_operator(inv, 1, 1./9, 'MNE')
     # counterpart to forwardOperator, [sources x sensors]
-    inv_sol = _assemble_kernel(invP, None, 'MNE', None)[0]
+    inv_sol = _assemble_kernel(inv=inv, label=None, method='MNE',
+                               pick_ori='normal')[0]
 
     # get source space
     src = inv.get('src')
@@ -146,22 +144,22 @@ def _extract_operator_data(fwd, inv, labels_parc):
     src_ident_rh = np.full(len(vert_rh), -1, dtype='int')
 
     # find sources that belong to the left HS labels
-    for l, label in enumerate(labels_parc[:201]):
+    n_labels = len(labels_parc)
+    for l, label in enumerate(labels_parc[:n_labels//2]):
         for v in label.vertices:
             src_ident_lh[np.where(vert_lh == v)] = l
 
     # find sources that belong to the right HS labels
-    for l, label in enumerate(labels_parc[201:402]):
+    for l, label in enumerate(labels_parc[n_labels//2:n_labels]):
         for v in label.vertices:
             src_ident_rh[np.where(vert_rh == v)] = l
 
     # fix numbers, so that sources in med. wall and unassigned get value -1
-    # TODO: replace constants with parcel counts etc.
     src_ident_lh = src_ident_lh -1
     src_ident_lh[src_ident_lh == -2] = -1
-    src_ident_rh = src_ident_rh + 200
-    src_ident_rh[src_ident_rh == 400] = -1
-    src_ident_rh[src_ident_rh == 199] = -1
+    src_ident_rh = src_ident_rh + (n_labels // 2) - 1
+    src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
+    src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
     src_ident = np.concatenate((src_ident_lh,src_ident_rh))
 
     #### change variable names
@@ -232,5 +230,7 @@ def weight_inverse_operator(fwd, inv, labels):
                       if ch not in fwd['info']['bads']])
     fwd_mat = fwd_mat[ind, :]
 
+    """Compute the weighted operator."""
     weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
                                              identities)
+    return weighted_inv

@@ -1,10 +1,16 @@
+# -*- encoding: utf-8 -*-
 from fidelity import weight_inverse_operator
 
 import mne
-from mne import (convert_forward_solution, read_forward_solution,
-                 read_labels_from_annot)
+from mne import (apply_forward, convert_forward_solution,
+                 read_forward_solution, read_labels_from_annot)
 from mne.datasets import sample
-from mne.minimum_norm import read_inverse_operator
+from mne.minimum_norm import read_inverse_operator, prepare_inverse_operator
+from mne.simulation import simulate_sparse_stc
+
+import numpy as np
+
+from surfer import Brain
 
 """Read forward and inverse operators from disk."""
 fpath = sample.data_path()
@@ -19,6 +25,9 @@ inv = read_inverse_operator(fname_inverse)
 """Force fixed source orientation mode."""
 fwd_fixed = convert_forward_solution(fwd, force_fixed=True, use_cps=True)
 
+"""Prepare the inverse operator for use."""
+inv = prepare_inverse_operator(inv, 1, 1./9, 'MNE')
+
 """Read labels from FreeSurfer annotation files."""
 subject = 'sample'
 subjects_dir = fpath + '/subjects'
@@ -29,3 +38,31 @@ labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
 
 """Compute the fidelity-weighted inverse operator."""
 fid_inv = weight_inverse_operator(fwd_fixed, inv, labels)
+
+"""Simulate source-space data and project it to the sensors."""
+fs = 1000
+times = np.arange(0, 300, dtype='float') / fs - 0.1
+
+def data_fun(times):
+    """Function to generate random source time courses"""
+    rng = np.random.RandomState(42)
+    return (50e-9 * np.sin(30. * times) *
+            np.exp(- (times - 0.15 + 0.05 * rng.randn(1)) ** 2 / 0.01))
+
+stc = simulate_sparse_stc(fwd_fixed['src'], n_dipoles=1, times=times,
+                          random_state=42, data_fun=data_fun)
+
+evoked = apply_forward(fwd=fwd_fixed, stc=stc, info=fwd_fixed['info'],
+                       use_cps=True, verbose=True)
+
+"""Project data back to sensor space."""
+ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
+                  if ch not in fwd['info']['bads']])
+
+source_data = np.dot(fid_inv, evoked._data[ind, :])
+n_sources = np.shape(source_data)[0]
+
+"""Visualize the inverse modeled data."""
+brain = Brain(subject_id=subject, subjects_dir=subjects_dir, hemi='both',
+              surf='inflated')
+
