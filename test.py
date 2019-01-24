@@ -7,6 +7,8 @@ from the MNE-python web page.
 """
 
 # -*- encoding: utf-8 -*-
+from __future__ import division
+
 from fidelity import weight_inverse_operator
 
 import mne
@@ -59,7 +61,7 @@ def data_fun(times):
     return (50e-9 * np.sin(30. * times) *
             np.exp(- (times - 0.15 + 0.05 * rng.randn(1)) ** 2 / 0.01))
 
-stc = simulate_sparse_stc(fwd_fixed['src'], n_dipoles=5, times=times,
+stc = simulate_sparse_stc(fwd['src'], n_dipoles=7, times=times,
                           random_state=42, data_fun=data_fun)
 
 evoked = apply_forward(fwd=fwd_fixed, stc=stc, info=fwd_fixed['info'],
@@ -73,20 +75,12 @@ source_data = np.dot(fid_inv, evoked._data[ind, :])
 n_sources = np.shape(source_data)[0]
 
 """Visualize the inverse modeled data."""
-vertices = [inv['src'][0]['vertno'], inv['src'][1]['vertno']]
+vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
 
-source_data[source_data == 0] = np.nan
-source_data = np.nan_to_num(np.log10(source_data))
-
-stc = SourceEstimate(source_data, vertices, tmin=0.0, tstep=0.001)
-
-#stc.data = np.log10(stc.data)
-#stc = apply_inverse(evoked, inv, 1/9., 'MNE')
+stc = SourceEstimate(source_data, vertices, tmin=0.0, tstep=0.001) # weighted
+#stc = apply_inverse(evoked, inv, 1/9., 'MNE') # original
 
 stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
-         time_viewer=True) #, clim={'pos_lims': [np.min(source_data),
-#         np.median(source_data), np.max(source_data)]})
+         time_viewer=True, colormap='mne')
 
 raw_input('press enter to exit')
-
-
