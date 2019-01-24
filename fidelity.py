@@ -7,6 +7,8 @@ Generate fidelity weighting vector
 @author: Santeri Rouhinen
 """
 
+from __future__ import division
+
 import scipy
 from scipy import asmatrix, genfromtxt, signal
 
@@ -61,7 +63,7 @@ def plv(x, y, identities):
             cplv[i] = (scipy.sum((scipy.asarray(y[identity])) *
                        scipy.conjugate(scipy.asarray(x[i]))))
 
-    cplv /= np.shape(x)[1] # time_output # Normalize by samples.
+    cplv /= np.shape(x)[1]
     return cplv
 
 def _compute_weights(source_series, parcel_series, identities, inverse):
@@ -127,8 +129,8 @@ def _extract_operator_data(fwd, inv, labels_parc):
     inv : Inverse
         The inverse operator. An instance of the MNE-Python class Inverse.
     labels_parc : list
-        List of labels belonging to the used parcellation, e.g.
-        Desikan-Killiany or Yeo.
+        List of labels belonging to the used parcellation, e.g. the
+        Desikan-Killiany, Destrieux, or Schaefer parcellation.
     """
 
     # counterpart to forwardOperator, [sources x sensors]
@@ -162,7 +164,7 @@ def _extract_operator_data(fwd, inv, labels_parc):
     src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
     src_ident = np.concatenate((src_ident_lh,src_ident_rh))
 
-    #### change variable names
+    # change variable names
     sourceIdentities = src_ident
     inverseOperator = inv_sol
     forwardOperator = fwd['sol']['data'] # sensors x sources
@@ -217,6 +219,17 @@ def compute_weighted_operator(fwd, inv, source_identities):
 
     weightedInvOp = _compute_weights(sourceTimeSeries, parcelTimeSeries,
                                      source_identities, inv)
+
+    # """Build matrix mapping sources to parcels."""
+    # source_to_parcel_map = scipy.zeros((n_parcels, len(source_identities)),
+    #                                    dtype=scipy.int8)
+    # for i, identity in enumerate(source_identities):
+    #    if (identity >= 0):
+    #        source_to_parcel_map[identity, i] = 1
+    #
+    # """Collapse data to parcels."""
+    # estimated_sources = np.dot(weightedInvOp, sensor_series)
+
     return weightedInvOp
 
 def weight_inverse_operator(fwd, inv, labels):
