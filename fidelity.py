@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
+"""Functions for computing fidelity-weighted inverse operator and collapsing
+source time-series into parcel time-series.
+
 Created on Fri Jul 21 16:31:20 2017
 
 Generate fidelity weighting vector
@@ -25,11 +27,14 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
     ================
     n_parcels : int
         Number of source-space parcels or labels.
+
     n_samples : int
         Length of the generated time-series in number of samples.
+
     n_cut_samples : int
         Number of temporary extra samples at each end of the signal
         for handling edge artefacts.
+
     widths : ndarray
         Widths to use for the wavelet transform.
 
@@ -67,55 +72,55 @@ def plv(x, y, identities):
     return cplv
 
 def _compute_weights(source_series, parcel_series, identities, inverse):
-    cPLVArray = plv(source_series, parcel_series, identities)
+    cplv_array = plv(source_series, parcel_series, identities)
 
     """Get weights and flip. This could be the output."""
-    weights = scipy.sign(scipy.real(cPLVArray)) * scipy.real(cPLVArray) ** 2
+    weights = scipy.sign(scipy.real(cplv_array)) * scipy.real(cplv_array) ** 2
 
     """Create weighted inverse operator and normalize the norm of weighted inv op
     to match original inv op's norm."""
     """Multiply sensor dimension in inverseOperator by weight. This one would be
     the un-normalized operator."""
-    weightedInvOp = scipy.einsum('ij,i->ij', inverse, weights)
+    weighted_inv = scipy.einsum('ij,i->ij', inverse, weights)
 
     n_parcels = max(identities) + 1
     """Initialize norm normalized weights. Maybe not necessary."""
-    weightsNormalized = scipy.zeros(len(weights))
+    weights_normalized = scipy.zeros(len(weights))
     for parcel in range(n_parcels): # Normalize parcel level norms.
         # Index sources belonging to parcel
         ii = [i for i, source in enumerate(identities) if source == parcel]
 
         # Normalize per parcel.
-        weightsNormalized[ii] = weights[ii] * (norm(inverse[ii]) /
-                                               norm(weightedInvOp[ii]))
+        weights_normalized[ii] = weights[ii] * (norm(inverse[ii]) /
+                                               norm(weighted_inv[ii]))
 
     """Parcel level normalized operator."""
-    weightedInvOp = scipy.einsum('ij,i->ij', inverse, weightsNormalized)
+    weighted_inv = scipy.einsum('ij,i->ij', inverse, weights_normalized)
 
     """Operator level normalized operator. If there are sources not in any
     parcel weightedInvOp gets Nan values due to normalizations."""
-    weightedInvOp *= norm(inverse) / norm(scipy.nan_to_num(weightedInvOp))
-    weightedInvOp = scipy.nan_to_num(weightedInvOp)
+    weighted_inv *= norm(inverse) / norm(scipy.nan_to_num(weighted_inv))
+    weighted_inv = scipy.nan_to_num(weighted_inv)
 
-    return weightedInvOp
+    return weighted_inv
 
 def _load_data(fname_identities, fname_forward, fname_inverse):
     """Expected ids for parcels are 0 to n-1, where n is number of parcels,
     and -1 for sources that do not belong to any parcel."""
-    sourceIdentities = genfromtxt(fname_identities, dtype='int32',
+    identities = genfromtxt(fname_identities, dtype='int32',
                                   delimiter=',')
 
     """Zero as ID doesn't work if parcel not belonging to any parcel is given
     zero value. There could be sources not in any parcel. Sparce parcels that
     is. Should initialize those to -1 or Nan."""
     # sensors x sources
-    forwardOperator = scipy.matrix(genfromtxt(fname_forward,
-                                              dtype='float', delimiter=','))
+    fwd = scipy.matrix(genfromtxt(fname_forward,
+                                  dtype='float', delimiter=','))
 
     # sources x sensors
-    inverseOperator = scipy.matrix(genfromtxt(fname_inverse,
-                                              dtype='float', delimiter=','))
-    return sourceIdentities, forwardOperator, inverseOperator
+    inv = scipy.matrix(genfromtxt(fname_inverse,
+                       dtype='float', delimiter=','))
+    return identities, fwd, inv
 
 def _extract_operator_data(fwd, inv, labels_parc):
     """Function for extracting forward and inverse operator matrices from
@@ -126,8 +131,10 @@ def _extract_operator_data(fwd, inv, labels_parc):
     ================
     fwd : Forward
         The forward operator. An instance of the MNE-Python class Forward.
+
     inv : Inverse
         The inverse operator. An instance of the MNE-Python class Inverse.
+
     labels_parc : list
         List of labels belonging to the used parcellation, e.g. the
         Desikan-Killiany, Destrieux, or Schaefer parcellation.
@@ -178,8 +185,10 @@ def compute_weighted_operator(fwd, inv, source_identities):
     ================
     fwd : ndarray
         The forward operator.
+
     inv : ndarray
         The original inverse operator.
+
     source_identities : ndarray
         Vector mapping sources to parcels or labels.
 
@@ -206,33 +215,42 @@ def compute_weighted_operator(fwd, inv, source_identities):
     """Original values 1, 31. Higher number wider span."""
     widths = scipy.arange(5, 6)
     time_generate = time_output + 2*time_cut
-    samplesSubset = 10000 + 2*time_cut
 
     """Make and clone parcel time series to source time series."""
     fwd, inv = asmatrix(fwd), asmatrix(inv)
-    parcelTimeSeries = make_series(n_parcels, time_output, time_cut, widths)
-    sourceTimeSeries = parcelTimeSeries[source_identities]
-    sourceTimeSeries[source_identities < 0] = 0
+    parcel_series = make_series(n_parcels, time_output, time_cut, widths)
+    source_series = parcel_series[source_identities]
+    source_series[source_identities < 0] = 0
 
     """Forward then inverse model source series."""
-    sourceTimeSeries = inv * (fwd * sourceTimeSeries)
-
-    weightedInvOp = _compute_weights(sourceTimeSeries, parcelTimeSeries,
+    source_series = inv * (fwd * source_series)
+    weighted_inv = _compute_weights(source_series, parcel_series,
                                      source_identities, inv)
-
-    # """Build matrix mapping sources to parcels."""
-    # source_to_parcel_map = scipy.zeros((n_parcels, len(source_identities)),
-    #                                    dtype=scipy.int8)
-    # for i, identity in enumerate(source_identities):
-    #    if (identity >= 0):
-    #        source_to_parcel_map[identity, i] = 1
-    #
-    # """Collapse data to parcels."""
-    # estimated_sources = np.dot(weightedInvOp, sensor_series)
-
-    return weightedInvOp
+    return weighted_inv
 
 def weight_inverse_operator(fwd, inv, labels):
+    """Compute fidelity-weighted inverse operator.
+
+    Input arguments:
+    ================
+    fwd : ForwardOperator
+        The forward operator. Must be an instance of the MNE-Python
+        ForwardOperator class.
+
+    inv : InverseOperator
+        The original inverse operator. Must be an instance of the MNE-Python
+        InverseOperator class.
+
+    labels : list
+        List of labels belonging to the used parcellation. Each label must
+        be an instance of the MNE-Python Label class.
+
+    Output arguments:
+    =================
+    weighted_inv : ndarray
+        TODO: could this be returned as an InverseOperator instance?
+        (check which fields would need to be updated)
+    """
 
     identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels)
 
@@ -246,4 +264,18 @@ def weight_inverse_operator(fwd, inv, labels):
     """Compute the weighted operator."""
     weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
                                              identities)
+
+    """Build matrix mapping sources to parcels."""
+    n_parcels = np.max(identities) + 1
+    source_to_parcel_map = scipy.zeros((n_parcels, len(identities)),
+                                        dtype=scipy.int8)
+    for i, identity in enumerate(identities):
+        if (identity >= 0):
+            source_to_parcel_map[identity, i] = 1
+
+    """Collapse data to parcels."""
+    #estimated_sources = np.dot(weighted_inv, sensor_series)
+    #parcel_series = np.dot(source_to_parcel_map, estimated_sources)
+
     return weighted_inv
+

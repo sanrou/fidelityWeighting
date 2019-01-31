@@ -53,7 +53,7 @@ fid_inv = weight_inverse_operator(fwd_fixed, inv, labels)
 
 """Simulate source-space data and project it to the sensors."""
 fs = 1000
-times = np.arange(0, 300, dtype='float') / fs - 0.1
+times = np.arange(0, 300, dtype='float') / fs
 
 def data_fun(times):
     """Function to generate random source time courses"""
@@ -61,11 +61,11 @@ def data_fun(times):
     return (50e-9 * np.sin(30. * times) *
             np.exp(- (times - 0.15 + 0.05 * rng.randn(1)) ** 2 / 0.01))
 
-stc = simulate_sparse_stc(fwd['src'], n_dipoles=7, times=times,
-                          random_state=42, data_fun=data_fun)
+simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=1, times=times,
+                                    random_state=42, data_fun=data_fun)
 
-evoked = apply_forward(fwd=fwd_fixed, stc=stc, info=fwd_fixed['info'],
-                       use_cps=True, verbose=True)
+evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
+                       info=fwd_fixed['info'], use_cps=True, verbose=True)
 
 """Project data back to sensor space."""
 ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
@@ -77,8 +77,9 @@ n_sources = np.shape(source_data)[0]
 """Visualize the inverse modeled data."""
 vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
 
-stc = SourceEstimate(source_data, vertices, tmin=0.0, tstep=0.001) # weighted
-#stc = apply_inverse(evoked, inv, 1/9., 'MNE') # original
+stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0,
+                     tstep=0.001) # weighted
+stc_orig = apply_inverse(evoked, inv, 1/9., 'MNE') # original
 
 stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
          time_viewer=True, colormap='mne')
