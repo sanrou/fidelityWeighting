@@ -171,6 +171,9 @@ def _extract_operator_data(fwd, inv, labels_parc):
     src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
     src_ident = np.concatenate((src_ident_lh,src_ident_rh))
 
+    # TODO: check that these hard-coded values above work also with other
+    # parcellations
+
     # change variable names
     sourceIdentities = src_ident
     inverseOperator = inv_sol
@@ -265,6 +268,30 @@ def weight_inverse_operator(fwd, inv, labels):
     weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
                                              identities)
 
+    return weighted_inv
+
+def apply_weighting_evoked(evoked, weighted_inv, labels):
+    """Apply fidelity-weighted inverse operator to evoked data.
+
+    Input arguments:
+    ================
+    evoked : Evoked
+        Trial-averaged evoked data. Evoked must be an instance of the
+        MNE-Python class Evoked.
+
+    weighted_inv : ndarray [n_sources, n_sensors]
+        The fidelity-weighted inverse operator.
+
+    labels: list of Label
+        List of labels or parcels belonging to the used parcellation. Each
+        item must be an instance of the MNE-Python Label class.
+
+    Output arguments:
+    =================
+    parcel_series : ndarray [n_parcels, n_samples]
+        The parcel time-series.
+    """
+
     """Build matrix mapping sources to parcels."""
     n_parcels = np.max(identities) + 1
     source_to_parcel_map = scipy.zeros((n_parcels, len(identities)),
@@ -274,8 +301,8 @@ def weight_inverse_operator(fwd, inv, labels):
             source_to_parcel_map[identity, i] = 1
 
     """Collapse data to parcels."""
-    #estimated_sources = np.dot(weighted_inv, sensor_series)
-    #parcel_series = np.dot(source_to_parcel_map, estimated_sources)
+    estimated_sources = np.dot(weighted_inv, evoked._data)
 
-    return weighted_inv
+    # TODO: check whether this gives the correct result
+    # parcel_series = np.dot(source_to_parcel_map, estimated_sources)
 

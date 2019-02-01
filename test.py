@@ -9,7 +9,7 @@ from the MNE-python web page.
 # -*- encoding: utf-8 -*-
 from __future__ import division
 
-from fidelity import weight_inverse_operator
+from fidelity import apply_weighting_evoked, weight_inverse_operator
 
 import mne
 from mne import (apply_forward, convert_forward_solution,
@@ -99,4 +99,3 @@ stc_orig.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
          time_viewer=True, colormap='mne')
 
 raw_input('press enter to exit')
-
