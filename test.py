@@ -61,7 +61,7 @@ def data_fun(times):
     return (50e-9 * np.sin(30. * times) *
             np.exp(- (times - 0.15 + 0.05 * rng.randn(1)) ** 2 / 0.01))
 
-simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=1, times=times,
+simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=5, times=times,
                                     random_state=42, data_fun=data_fun)
 
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
@@ -74,6 +74,19 @@ ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
 source_data = np.dot(fid_inv, evoked._data[ind, :])
 n_sources = np.shape(source_data)[0]
 
+"""Visualize dipole locations."""
+brain = Brain(subject_id=subject, subjects_dir=subjects_dir, hemi='both',
+              surf='inflated')
+
+brain.add_foci(coords=simulated_stc.rh_vertno, coords_as_verts=True, hemi='rh',
+               map_surface='inflated', color='red')
+brain.add_foci(coords=simulated_stc.lh_vertno, coords_as_verts=True, hemi='lh',
+               map_surface='inflated', color='red')
+
+# TODO: this outputs some vtk error, not sure why. It seems to work anyway
+
+raw_input('press enter to continue')
+
 """Visualize the inverse modeled data."""
 vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
 
@@ -85,3 +98,4 @@ stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
          time_viewer=True, colormap='mne')
 
 raw_input('press enter to exit')
+
