@@ -67,7 +67,7 @@ simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=5, times=times,
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
                        info=fwd_fixed['info'], use_cps=True, verbose=True)
 
-"""Project data back to sensor space."""
+"""Project data back to source space."""
 ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                   if ch not in fwd['info']['bads']])
 
@@ -75,13 +75,14 @@ source_data = np.dot(fid_inv, evoked._data[ind, :])
 n_sources = np.shape(source_data)[0]
 
 """Visualize dipole locations."""
+surf = 'inflated'
 brain = Brain(subject_id=subject, subjects_dir=subjects_dir, hemi='both',
-              surf='inflated')
+              surf=surf)
 
-brain.add_foci(coords=simulated_stc.rh_vertno, coords_as_verts=True, hemi='rh',
-               map_surface='inflated', color='red')
-brain.add_foci(coords=simulated_stc.lh_vertno, coords_as_verts=True, hemi='lh',
-               map_surface='inflated', color='red')
+brain.add_foci(coords=simulated_stc.lh_vertno, coords_as_verts=True,
+               hemi='lh', map_surface=surf, color='red')
+brain.add_foci(coords=simulated_stc.rh_vertno, coords_as_verts=True,
+               hemi='rh', map_surface=surf, color='red')
 
 # TODO: this outputs some vtk error, not sure why. It seems to work anyway
 
@@ -94,7 +95,7 @@ stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0,
                      tstep=0.001) # weighted
 stc_orig = apply_inverse(evoked, inv, 1/9., 'MNE') # original
 
-stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
+stc_orig.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
          time_viewer=True, colormap='mne')
 
 raw_input('press enter to exit')
