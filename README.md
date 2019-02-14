@@ -1,7 +1,8 @@
-# fidelityWeighting
+# Fidelity-weighting
 
 This is a repository for computing fidelity-weighted inverse operators to be
-used with cortical parcellations [1–3] in neurophysiological research.
+used with cortical parcellations (see e.g. [1–3]) in neurophysiological 
+research.
 
 ## Dependencies
 
