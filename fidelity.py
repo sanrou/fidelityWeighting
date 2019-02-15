@@ -91,15 +91,15 @@ def _compute_weights(source_series, parcel_series, identities, inverse):
         ii = [i for i, source in enumerate(identities) if source == parcel]
 
         # Normalize per parcel.
-        weights_normalized[ii] = weights[ii] * (norm(inverse[ii]) /
-                                               norm(weighted_inv[ii]))
+        weights_normalized[ii] = weights[ii] #* (norm(inverse[ii]) /
+                                             #   norm(weighted_inv[ii]))
 
     """Parcel level normalized operator."""
     weighted_inv = scipy.einsum('ij,i->ij', inverse, weights_normalized)
 
     """Operator level normalized operator. If there are sources not in any
     parcel weightedInvOp gets Nan values due to normalizations."""
-    weighted_inv *= norm(inverse) / norm(scipy.nan_to_num(weighted_inv))
+    #weighted_inv *= norm(inverse) / norm(scipy.nan_to_num(weighted_inv))
     weighted_inv = scipy.nan_to_num(weighted_inv)
 
     return weighted_inv
@@ -270,7 +270,7 @@ def weight_inverse_operator(fwd, inv, labels):
 
     return weighted_inv
 
-def apply_weighting_evoked(evoked, weighted_inv, labels):
+def apply_weighting_evoked(evoked, fwd, inv, weighted_inv, labels):
     """Apply fidelity-weighted inverse operator to evoked data.
 
     Input arguments:
@@ -278,6 +278,9 @@ def apply_weighting_evoked(evoked, weighted_inv, labels):
     evoked : Evoked
         Trial-averaged evoked data. Evoked must be an instance of the
         MNE-Python class Evoked.
+
+    fwd, inv : Inverse
+        The original forward and inverse operators.
 
     weighted_inv : ndarray [n_sources, n_sensors]
         The fidelity-weighted inverse operator.
@@ -292,6 +295,16 @@ def apply_weighting_evoked(evoked, weighted_inv, labels):
         The parcel time-series.
     """
 
+    identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels)
+
+    """If there are bad channels the corresponding rows can be missing
+    from the forward matrix. Not sure if the same can occur for the
+    inverse."""
+    ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
+                      if ch not in fwd['info']['bads']])
+    fwd_mat = fwd_mat[ind, :]
+    # TODO: refactor into function
+
     """Build matrix mapping sources to parcels."""
     n_parcels = np.max(identities) + 1
     source_to_parcel_map = scipy.zeros((n_parcels, len(identities)),
@@ -301,8 +314,8 @@ def apply_weighting_evoked(evoked, weighted_inv, labels):
             source_to_parcel_map[identity, i] = 1
 
     """Collapse data to parcels."""
-    estimated_sources = np.dot(weighted_inv, evoked._data)
+    estimated_sources = np.dot(weighted_inv, evoked._data[ind, :])
 
-    # TODO: check whether this gives the correct result
-    # parcel_series = np.dot(source_to_parcel_map, estimated_sources)
-
+    # TODO: compare efficiency to previous implementation
+    parcel_series = np.dot(source_to_parcel_map, estimated_sources)
+    return parcel_series

@@ -1,4 +1,4 @@
-"""Script for testing the fidelity weighting.
+"""Script for testing the fidelity-weighting method.
 
 References:
 
@@ -61,7 +61,7 @@ def data_fun(times):
     return (50e-9 * np.sin(30. * times) *
             np.exp(- (times - 0.15 + 0.05 * rng.randn(1)) ** 2 / 0.01))
 
-simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=5, times=times,
+simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=10, times=times,
                                     random_state=42, data_fun=data_fun)
 
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
@@ -95,7 +95,11 @@ stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0,
                      tstep=0.001) # weighted
 stc_orig = apply_inverse(evoked, inv, 1/9., 'MNE') # original
 
-stc_orig.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
-         time_viewer=True, colormap='mne')
+stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
+         time_viewer=True, colormap='mne', alpha=0.5, transparent=True)
 
 raw_input('press enter to exit')
+
+"""Compute the parcel time-series."""
+parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, fid_inv,
+                                       labels)
