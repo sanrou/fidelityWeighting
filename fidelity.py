@@ -43,13 +43,15 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
     s : ndarray
         Simulated oscillating parcel time-series.
     """
-    s = randn(n_parcels, n_samples+2*n_cut_samples)
+    decim_factor = 5
+    s = randn(n_parcels, n_samples*decim_factor+2*n_cut_samples)
 
     for i in np.arange(0, n_parcels):
         s[i, :] = signal.cwt(s[i, :], signal.ricker, widths)
 
     s = signal.hilbert(s)
     s = s[:, n_cut_samples:-n_cut_samples]
+    s = scipy.signal.decimate(s, 5, axis=1)
 
     return s
 
@@ -210,14 +212,13 @@ def compute_weighted_operator(fwd, inv, source_identities):
 
     """Samples. Peaks at about 20 GB ram with 30 000 samples. Using too few
     samples will give poor results."""
-    time_output = 30000
+    time_output = 6000
 
     """Samples to remove from ends to get rid of border effects."""
     time_cut = 20
 
     """Original values 1, 31. Higher number wider span."""
     widths = scipy.arange(5, 6)
-    time_generate = time_output + 2*time_cut
 
     """Make and clone parcel time series to source time series."""
     fwd, inv = asmatrix(fwd), asmatrix(inv)
