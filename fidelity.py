@@ -93,15 +93,15 @@ def _compute_weights(source_series, parcel_series, identities, inverse):
         ii = [i for i, source in enumerate(identities) if source == parcel]
 
         # Normalize per parcel.
-        weights_normalized[ii] = weights[ii] #* (norm(inverse[ii]) /
-                                             #   norm(weighted_inv[ii]))
+        weights_normalized[ii] = weights[ii] * (norm(inverse[ii]) /
+                                                norm(weighted_inv[ii]))
 
     """Parcel level normalized operator."""
     weighted_inv = scipy.einsum('ij,i->ij', inverse, weights_normalized)
 
     """Operator level normalized operator. If there are sources not in any
     parcel weightedInvOp gets Nan values due to normalizations."""
-    #weighted_inv *= norm(inverse) / norm(scipy.nan_to_num(weighted_inv))
+    weighted_inv *= norm(inverse) / norm(scipy.nan_to_num(weighted_inv))
     weighted_inv = scipy.nan_to_num(weighted_inv)
 
     return weighted_inv
