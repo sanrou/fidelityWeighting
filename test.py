@@ -24,6 +24,9 @@ import numpy as np
 
 from surfer import Brain
 
+"""Settings."""
+inversion_method = 'MNE'
+
 """Read forward and inverse operators from disk."""
 fpath = sample.data_path()
 fpath_meg = fpath + '/MEG/sample'
@@ -38,7 +41,7 @@ inv = read_inverse_operator(fname_inverse)
 fwd_fixed = convert_forward_solution(fwd, force_fixed=True, use_cps=True)
 
 """Prepare the inverse operator for use."""
-inv = prepare_inverse_operator(inv, 1, 1./9, 'MNE')
+inv = prepare_inverse_operator(inv, 1, 1./9, inversion_method)
 
 """Read labels from FreeSurfer annotation files."""
 subject = 'sample'
@@ -49,7 +52,7 @@ labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
                                 parc=parcellation)
 
 """Compute the fidelity-weighted inverse operator."""
-fid_inv = weight_inverse_operator(fwd_fixed, inv, labels, 'MNE')
+fid_inv = weight_inverse_operator(fwd_fixed, inv, labels, inversion_method)
 
 """Simulate source-space data and project it to the sensors."""
 fs = 1000
@@ -93,7 +96,7 @@ vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
 
 stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0,
                      tstep=0.001) # weighted
-stc_orig = apply_inverse(evoked, inv, 1/9., 'MNE') # original
+stc_orig = apply_inverse(evoked, inv, 1/9., inversion_method) # original
 
 stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
          time_viewer=True, colormap='mne', alpha=0.5, transparent=True)
@@ -102,4 +105,4 @@ raw_input('press enter to exit')
 
 """Compute the parcel time-series."""
 parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, fid_inv,
-                                       labels, 'MNE')
+                                       labels, inversion_method)
