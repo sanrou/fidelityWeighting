@@ -185,7 +185,6 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     src_ident_lh[src_ident_lh == -2] = -1
     src_ident_rh = src_ident_rh + (n_labels // 2) - 1
     src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
-    src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
     src_ident = np.concatenate((src_ident_lh, src_ident_rh))
 
     # TODO: check that these hard-coded values above work also with other
