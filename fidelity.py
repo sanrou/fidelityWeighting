@@ -301,7 +301,6 @@ def apply_weighting(data, fwd, inv, labels, method):
         The inverse-modeled data.
     """
 
-    # TODO: the noise_norm argument is not yet returned.
     fid_inv, noise_norm = weight_inverse_operator(fwd, inv, labels,
                                                   method)
     source_data = np.dot(fid_inv, data)
