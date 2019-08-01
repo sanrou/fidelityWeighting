@@ -272,6 +272,42 @@ def weight_inverse_operator(fwd, inv, labels, method):
 
     return weighted_inv
 
+def apply_weighting(data, fwd, inv, labels, method):
+    """Apply fidelity-weighted inverse operator to given data.
+
+    Input arguments:
+    ================
+    data : ndarray
+        The data to be inverse modeled, e.g. evoked._data.
+
+    fwd : ForwardOperator
+        The forward operator. Must be an instance of the MNE-Python
+        ForwardOperator class.
+
+    inv : InverseOperator
+        The original unweighted inverse operator. Must be an instance of the
+        MNE-Python InverseOperator class.
+
+    labels : list
+        List of labels that belong to the used parcellation.
+
+    method : str
+        The inversion method. Must be either 'MNE', 'dSPM', 'sLORETA',
+        or 'eLORETA'.
+
+    Output arguments:
+    =================
+    source_data : ndarray
+        The inverse-modeled data.
+    """
+
+    # TODO: the noise_norm argument is not yet returned.
+    fid_inv, noise_norm = weight_inverse_operator(fwd_fixed, inv, labels,
+                                                  method)
+    source_data = np.dot(fid_inv, data)
+    source_data *= noise_norm
+    return source_data
+
 def apply_weighting_evoked(evoked, fwd, inv, weighted_inv, labels, method):
     """Apply fidelity-weighted inverse operator to evoked data.
 
