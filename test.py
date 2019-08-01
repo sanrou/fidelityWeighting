@@ -49,7 +49,7 @@ labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
                                 parc=parcellation)
 
 """Compute the fidelity-weighted inverse operator."""
-fid_inv = weight_inverse_operator(fwd_fixed, inv, labels)
+fid_inv = weight_inverse_operator(fwd_fixed, inv, labels, 'MNE')
 
 """Simulate source-space data and project it to the sensors."""
 fs = 1000
@@ -102,4 +102,4 @@ raw_input('press enter to exit')
 
 """Compute the parcel time-series."""
 parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, fid_inv,
-                                       labels)
+                                       labels, 'MNE')

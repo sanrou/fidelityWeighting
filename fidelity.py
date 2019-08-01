@@ -124,7 +124,7 @@ def _load_data(fname_identities, fname_forward, fname_inverse):
                        dtype='float', delimiter=','))
     return identities, fwd, inv
 
-def _extract_operator_data(fwd, inv, labels_parc):
+def _extract_operator_data(fwd, inv, labels_parc, method):
     """Function for extracting forward and inverse operator matrices from
     the MNE-Python forward and inverse data structures, and the assembling
     the source identity map.
@@ -143,8 +143,8 @@ def _extract_operator_data(fwd, inv, labels_parc):
     """
 
     # counterpart to forwardOperator, [sources x sensors]
-    inv_sol = _assemble_kernel(inv=inv, label=None, method='MNE',
-                               pick_ori='normal')[0]
+    inv_sol, noise_norm = _assemble_kernel(inv=inv, label=None, method=method,
+                                           pick_ori='normal')[0:2]
 
     # get source space
     src = inv.get('src')
@@ -171,7 +171,7 @@ def _extract_operator_data(fwd, inv, labels_parc):
     src_ident_rh = src_ident_rh + (n_labels // 2) - 1
     src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
     src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
-    src_ident = np.concatenate((src_ident_lh,src_ident_rh))
+    src_ident = np.concatenate((src_ident_lh, src_ident_rh))
 
     # TODO: check that these hard-coded values above work also with other
     # parcellations
@@ -232,7 +232,7 @@ def compute_weighted_operator(fwd, inv, source_identities):
                                      source_identities, inv)
     return weighted_inv
 
-def weight_inverse_operator(fwd, inv, labels):
+def weight_inverse_operator(fwd, inv, labels, method):
     """Compute fidelity-weighted inverse operator.
 
     Input arguments:
@@ -256,7 +256,8 @@ def weight_inverse_operator(fwd, inv, labels):
         (check which fields would need to be updated)
     """
 
-    identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels)
+    identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels,
+                                                          method)
 
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
@@ -271,7 +272,7 @@ def weight_inverse_operator(fwd, inv, labels):
 
     return weighted_inv
 
-def apply_weighting_evoked(evoked, fwd, inv, weighted_inv, labels):
+def apply_weighting_evoked(evoked, fwd, inv, weighted_inv, labels, method):
     """Apply fidelity-weighted inverse operator to evoked data.
 
     Input arguments:
@@ -296,7 +297,8 @@ def apply_weighting_evoked(evoked, fwd, inv, weighted_inv, labels):
         The parcel time-series.
     """
 
-    identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels)
+    identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels,
+                                                          method)
 
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
