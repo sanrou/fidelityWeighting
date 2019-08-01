@@ -163,6 +163,7 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
 
     # get source space
     src = inv.get('src')
+    # TODO: Is src[0] always the left hemisphere?
     vert_lh, vert_rh = src[0].get('vertno'), src[1].get('vertno')
 
     # get labels, vertices and src-identities
