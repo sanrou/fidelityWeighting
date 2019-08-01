@@ -25,7 +25,7 @@ import numpy as np
 from surfer import Brain
 
 """Settings."""
-inversion_method = 'MNE'
+inversion_method = 'dSPM'
 
 """Read forward and inverse operators from disk."""
 fpath = sample.data_path()
@@ -67,7 +67,7 @@ simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=10, times=times,
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
                        info=fwd_fixed['info'], use_cps=True, verbose=True)
 
-"""Project data back to source space."""
+"""Apply weighting."""
 ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                   if ch not in fwd['info']['bads']])
 
