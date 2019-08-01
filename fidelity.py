@@ -56,6 +56,14 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
     return s
 
 def plv(x, y, identities):
+    """Function for computing phase-locking values between x and y.
+
+    Output arguments:
+    =================
+    cplv : ndarray
+        Complex-valued phase-locking values.
+    """
+
     """Change to amplitude 1, keep angle using Euler's formula."""
     x = scipy.exp(1j*(asmatrix(scipy.angle(x))))
     y = scipy.exp(1j*(asmatrix(scipy.angle(y))))
@@ -140,6 +148,13 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     labels_parc : list
         List of labels belonging to the used parcellation, e.g. the
         Desikan-Killiany, Destrieux, or Schaefer parcellation.
+
+    method : str
+        The inversion method. Must be either 'MNE', 'dSPM', 'sLORETA', or
+        'eLORETA'.
+
+    Output arguments:
+    =================
     """
 
     # counterpart to forwardOperator, [sources x sensors]
@@ -177,11 +192,11 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     # parcellations
 
     # change variable names
-    sourceIdentities = src_ident
+    source_identities = src_ident
     inverseOperator = inv_sol
     forwardOperator = fwd['sol']['data'] # sensors x sources
 
-    return sourceIdentities, forwardOperator, inverseOperator, noise_norm
+    return source_identities, forwardOperator, inverseOperator, noise_norm
 
 def compute_weighted_operator(fwd, inv, source_identities):
     """Function for computing a fidelity-weighted inverse operator.
