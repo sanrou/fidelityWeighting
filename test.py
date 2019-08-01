@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 """Script for testing the fidelity-weighting method.
 
 References:
@@ -6,7 +7,6 @@ The source-space simulation code is largely based on example code available
 from the MNE-python web page.
 """
 
-# -*- encoding: utf-8 -*-
 from __future__ import division
 
 from fidelity import apply_weighting, apply_weighting_evoked
@@ -61,7 +61,7 @@ def data_fun(times):
     return (50e-9 * np.sin(30. * times) *
             np.exp(- (times - 0.15 + 0.05 * rng.randn(1)) ** 2 / 0.01))
 
-simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=10, times=times,
+simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=1, times=times,
                                     random_state=42, data_fun=data_fun)
 
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
