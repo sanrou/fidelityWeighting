@@ -9,7 +9,7 @@ from the MNE-python web page.
 # -*- encoding: utf-8 -*-
 from __future__ import division
 
-from fidelity import apply_weighting_evoked, weight_inverse_operator
+from fidelity import apply_weighting, apply_weighting_evoked
 
 import mne
 from mne import (apply_forward, convert_forward_solution,
@@ -67,18 +67,12 @@ simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=10, times=times,
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
                        info=fwd_fixed['info'], use_cps=True, verbose=True)
 
-"""Compute the fidelity-weighted inverse operator."""
-# TODO: remove this line
-fid_inv = weight_inverse_operator(fwd_fixed, inv, labels, inversion_method)
-
 """Project data back to source space."""
 ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                   if ch not in fwd['info']['bads']])
 
-source_data = np.dot(fid_inv, evoked._data[ind, :])
-# TODO: replace with
-# source_data = apply_weighting(evoked._data[ind, :], fwd_fixed, inv,
-#                               labels, inversion_method)
+source_data = apply_weighting(evoked._data[ind, :], fwd_fixed, inv,
+                              labels, inversion_method)
 n_sources = np.shape(source_data)[0]
 
 """Visualize dipole locations."""
@@ -108,5 +102,5 @@ stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
 raw_input('press enter to exit')
 
 """Compute the parcel time-series."""
-parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, fid_inv,
+parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv,
                                        labels, inversion_method)

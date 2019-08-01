@@ -181,7 +181,7 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     inverseOperator = inv_sol
     forwardOperator = fwd['sol']['data'] # sensors x sources
 
-    return sourceIdentities, forwardOperator, inverseOperator
+    return sourceIdentities, forwardOperator, inverseOperator, noise_norm
 
 def compute_weighted_operator(fwd, inv, source_identities):
     """Function for computing a fidelity-weighted inverse operator.
@@ -256,8 +256,8 @@ def weight_inverse_operator(fwd, inv, labels, method):
         (check which fields would need to be updated)
     """
 
-    identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels,
-                                                          method)
+    identities, fwd_mat, inv_mat, noise_norm = \
+        _extract_operator_data(fwd, inv, labels, method)
 
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
@@ -270,7 +270,7 @@ def weight_inverse_operator(fwd, inv, labels, method):
     weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
                                              identities)
 
-    return weighted_inv
+    return weighted_inv, noise_norm
 
 def apply_weighting(data, fwd, inv, labels, method):
     """Apply fidelity-weighted inverse operator to given data.
@@ -302,13 +302,14 @@ def apply_weighting(data, fwd, inv, labels, method):
     """
 
     # TODO: the noise_norm argument is not yet returned.
-    fid_inv, noise_norm = weight_inverse_operator(fwd_fixed, inv, labels,
+    fid_inv, noise_norm = weight_inverse_operator(fwd, inv, labels,
                                                   method)
     source_data = np.dot(fid_inv, data)
-    source_data *= noise_norm
+    if (noise_norm is not None):
+        source_data *= noise_norm
     return source_data
 
-def apply_weighting_evoked(evoked, fwd, inv, weighted_inv, labels, method):
+def apply_weighting_evoked(evoked, fwd, inv, labels, method):
     """Apply fidelity-weighted inverse operator to evoked data.
 
     Input arguments:
@@ -332,9 +333,10 @@ def apply_weighting_evoked(evoked, fwd, inv, weighted_inv, labels, method):
     parcel_series : ndarray [n_parcels, n_samples]
         The parcel time-series.
     """
-
-    identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv, labels,
-                                                          method)
+    weighted_inv, noise_norm = weight_inverse_operator(fwd, inv, labels,
+                                                       method)
+    identities, fwd_mat, inv_mat, noise_norm = \
+        _extract_operator_data(fwd, inv, labels, method)
 
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
@@ -354,6 +356,8 @@ def apply_weighting_evoked(evoked, fwd, inv, weighted_inv, labels, method):
 
     """Collapse data to parcels."""
     estimated_sources = np.dot(weighted_inv, evoked._data[ind, :])
+    if (noise_norm is not None):
+        estimated_sources *= noise_norm
 
     # TODO: compare efficiency to previous implementation
     parcel_series = np.dot(source_to_parcel_map, estimated_sources)
