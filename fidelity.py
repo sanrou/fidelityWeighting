@@ -44,14 +44,14 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
         Simulated oscillating parcel time-series.
     """
     decim_factor = 5
-    s = randn(n_parcels, n_samples*decim_factor+2*n_cut_samples)
+    s = randn(n_parcels, n_samples*decim_factor + 2*n_cut_samples)
 
     for i in np.arange(0, n_parcels):
         s[i, :] = signal.cwt(s[i, :], signal.ricker, widths)
 
     s = signal.hilbert(s)
     s = s[:, n_cut_samples:-n_cut_samples]
-    s = scipy.signal.decimate(s, 5, axis=1)
+    s = scipy.signal.decimate(s, q=decim_factor, axis=1)
 
     return s
 
@@ -315,7 +315,6 @@ def apply_weighting(data, fwd, inv, labels, method):
     source_data : ndarray
         The inverse-modeled data.
     """
-
     fid_inv, noise_norm = weight_inverse_operator(fwd, inv, labels,
                                                   method)
     source_data = np.dot(fid_inv, data)
