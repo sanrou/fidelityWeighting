@@ -190,10 +190,8 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     # find sources that belong to the right HS labels
     for l, label in enumerate(labels_parc[n_labels//2:n_labels]):
         for v in label.vertices:
-            src_ident_rh[np.where(vert_rh == v)] = l
+            src_ident_rh[np.where(vert_rh == v)] = l + (n_labels // 2)
 
-    # Fix numbers, so that lh and rh are not identical.
-    src_ident_rh = src_ident_rh + (n_labels // 2) - 1
     src_identities = np.concatenate((src_ident_lh, src_ident_rh))
 
     # Extract forward matrix.
