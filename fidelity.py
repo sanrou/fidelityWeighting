@@ -43,6 +43,9 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
     s : ndarray
         Simulated oscillating parcel time-series.
     """
+
+    # TODO: Could one just omit the entire decimation part
+    # and create data with desired size/bandwidth?
     decim_factor = 5
     s = randn(n_parcels, n_samples*decim_factor + 2*n_cut_samples)
 
