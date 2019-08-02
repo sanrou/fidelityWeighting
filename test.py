@@ -46,7 +46,7 @@ inv = prepare_inverse_operator(inv, 1, 1./9, inversion_method)
 """Read labels from FreeSurfer annotation files."""
 subject = 'sample'
 subjects_dir = fpath + '/subjects'
-parcellation = 'aparc'
+parcellation = 'aparc.a2009s'
 
 labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
                                 parc=parcellation)
