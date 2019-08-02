@@ -46,7 +46,7 @@ inv = prepare_inverse_operator(inv, 1, 1./9, inversion_method)
 """Read labels from FreeSurfer annotation files."""
 subject = 'sample'
 subjects_dir = fpath + '/subjects'
-parcellation = 'aparc.a2009s'
+parcellation = 'aparc'
 
 labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
                                 parc=parcellation)
@@ -99,8 +99,8 @@ stc_orig = apply_inverse(evoked, inv, 1/9., inversion_method) # original
 stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
          time_viewer=True, colormap='mne', alpha=0.5, transparent=True)
 
-raw_input('press enter to exit')
-
 """Compute the parcel time-series."""
 parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv,
                                        labels, inversion_method)
+
+raw_input('press enter to exit')
