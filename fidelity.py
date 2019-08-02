@@ -161,8 +161,9 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     """
 
     # counterpart to forwardOperator, [sources x sensors]
-    inv_sol, noise_norm = _assemble_kernel(inv=inv, label=None, method=method,
-                                           pick_ori='normal')[0:2]
+    inv_operator, noise_norm = \
+        _assemble_kernel(inv=inv, label=None, method=method,
+                         pick_ori='normal')[0:2]
 
     # get source space
     src = inv.get('src')
@@ -185,21 +186,16 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
             src_ident_rh[np.where(vert_rh == v)] = l
 
     # fix numbers, so that sources in med. wall and unassigned get value -1
-    src_ident_lh = src_ident_lh -1
-    src_ident_lh[src_ident_lh == -2] = -1
+    src_ident_lh = src_ident_lh - 1
+    src_ident_lh[src_ident_lh == -2] = - 1
     src_ident_rh = src_ident_rh + (n_labels // 2) - 1
-    src_ident_rh[src_ident_rh == n_labels // 2 - 2] = -1
-    src_ident = np.concatenate((src_ident_lh, src_ident_rh))
+    src_ident_rh[src_ident_rh == n_labels // 2 - 2] = - 1
+    src_identities = np.concatenate((src_ident_lh, src_ident_rh))
 
-    # TODO: check that these hard-coded values above work also with other
-    # parcellations
+    # Extract forward matrix.
+    fwd_operator = fwd['sol']['data'] # sensors x sources
 
-    # change variable names
-    source_identities = src_ident
-    inverseOperator = inv_sol
-    forwardOperator = fwd['sol']['data'] # sensors x sources
-
-    return source_identities, forwardOperator, inverseOperator, noise_norm
+    return source_identities, fwd_operator, inv_operator, noise_norm
 
 def compute_weighted_operator(fwd, inv, source_identities):
     """Function for computing a fidelity-weighted inverse operator.
@@ -247,7 +243,7 @@ def compute_weighted_operator(fwd, inv, source_identities):
     """Forward then inverse model source series."""
     source_series = inv * (fwd * source_series)
     weighted_inv = _compute_weights(source_series, parcel_series,
-                                     source_identities, inv)
+                                    source_identities, inv)
     return weighted_inv
 
 def weight_inverse_operator(fwd, inv, labels, method):
