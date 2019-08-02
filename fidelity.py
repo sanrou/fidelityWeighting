@@ -194,6 +194,7 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     src_ident_lh[src_ident_lh == -2] = - 1
     src_ident_rh = src_ident_rh + (n_labels // 2) - 1
     src_ident_rh[src_ident_rh == n_labels // 2 - 2] = - 1
+
     src_identities = np.concatenate((src_ident_lh, src_ident_rh))
 
     # Extract forward matrix.
@@ -402,3 +403,23 @@ def sort_labels(labels):
     """Sort the labels."""
     sorted_labels = np.hstack([labels[lh_ind], labels[rh_ind]])
     return sorted_labels.tolist()
+
+def ind_label_unknown(labels):
+    """Function for retrieving indices of medial wall (unknown) labels.
+
+    Input arguments:
+    ================
+    labels : list
+        List of labels. Each label must be an instance of the MNE-Python
+        Label class.
+
+    Output arguments:
+    =================
+    ind : ndarray
+        Indices of the medial wall (unknown) labels.
+    """
+    ind = []
+    for i, label in enumerate(labels):
+        if ('unknown' in label.name.lower()):
+            ind.append(i)
+    return np.asarray(ind)
