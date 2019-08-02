@@ -374,3 +374,30 @@ def apply_weighting_evoked(evoked, fwd, inv, labels, method):
     # TODO: compare efficiency to previous implementation
     parcel_series = np.dot(source_to_parcel_map, estimated_sources)
     return parcel_series
+
+def sort_labels(labels):
+    """Function for sorting a list of labels so that the left hemisphere
+    labels are given in the first half of the sorted list and the right
+    hemisphere labels in the second half.
+
+    Input arguments:
+    ================
+    labels : list
+        List of labels. Each label must be an instance of the MNE-Python
+        Label class.
+
+    Output arguments:
+    =================
+    sorted_labels : list
+        The sorted labels.
+    """
+
+    """Find indices of left and right hemisphere labels."""
+    labels = np.asarray(labels)
+    lh_ind = [i for i, label in enumerate(labels) if 'lh' in label.hemi]
+    rh_ind = [i for i, label in enumerate(labels) if 'rh' in label.hemi]
+    lh_ind, rh_ind = np.asarray(lh_ind), np.asarray(rh_ind)
+
+    """Sort the labels."""
+    sorted_labels = np.hstack([labels[lh_ind], labels[rh_ind]])
+    return sorted_labels.tolist()
