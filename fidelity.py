@@ -174,6 +174,10 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     src_ident_lh = np.full(len(vert_lh), -1, dtype='int')
     src_ident_rh = np.full(len(vert_rh), -1, dtype='int')
 
+    """Sort labels to the order assumed in the following computations. This
+    works as long as Label.hemi is specified for every label."""
+    labels_parc = sort_labels(labels_parc)
+
     # find sources that belong to the left HS labels
     n_labels = len(labels_parc)
     for l, label in enumerate(labels_parc[:n_labels//2]):
@@ -216,9 +220,6 @@ def compute_weighted_operator(fwd, inv, source_identities):
     weighted_inv : ndarray
         The fidelity-weighted inverse operator.
     """
-
-
-    """Generate oscillatory parcel signals."""
 
     """Maybe one should test if unique non-negative values == max+1. This
     is expected in the code."""
