@@ -174,6 +174,9 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     src_ident_lh = np.full(len(vert_lh), -1, dtype='int')
     src_ident_rh = np.full(len(vert_rh), -1, dtype='int')
 
+    """Discard medial wall (unknown) labels, so that they get value -1."""
+    labels_parc = discard_unknown_labels(labels_parc)
+
     """Sort labels to the order assumed in the following computations. This
     works as long as Label.hemi is specified for every label."""
     labels_parc = sort_labels(labels_parc)
@@ -189,12 +192,8 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
         for v in label.vertices:
             src_ident_rh[np.where(vert_rh == v)] = l
 
-    # fix numbers, so that sources in med. wall and unassigned get value -1
-    src_ident_lh = src_ident_lh - 1
-    src_ident_lh[src_ident_lh == -2] = - 1
+    # Fix numbers, so that lh and rh are not identical.
     src_ident_rh = src_ident_rh + (n_labels // 2) - 1
-    src_ident_rh[src_ident_rh == n_labels // 2 - 2] = - 1
-
     src_identities = np.concatenate((src_ident_lh, src_ident_rh))
 
     # Extract forward matrix.
@@ -404,8 +403,9 @@ def sort_labels(labels):
     sorted_labels = np.hstack([labels[lh_ind], labels[rh_ind]])
     return sorted_labels.tolist()
 
-def ind_label_unknown(labels):
-    """Function for retrieving indices of medial wall (unknown) labels.
+def discard_unknown_labels(labels):
+    """Function for discarding medial wall (unknown) labels from a list
+    of labels.
 
     Input arguments:
     ================
@@ -415,11 +415,11 @@ def ind_label_unknown(labels):
 
     Output arguments:
     =================
-    ind : ndarray
-        Indices of the medial wall (unknown) labels.
+    cleaned_labels : list
+        List of retained labels.
     """
-    ind = []
+    cleaned_labels = []
     for i, label in enumerate(labels):
-        if ('unknown' in label.name.lower()):
-            ind.append(i)
-    return np.asarray(ind)
+        if ('unknown' not in label.name.lower()):
+            cleaned_labels.append(label)
+    return cleaned_labels
