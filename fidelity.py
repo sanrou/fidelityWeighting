@@ -195,7 +195,7 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
     # Extract forward matrix.
     fwd_operator = fwd['sol']['data'] # sensors x sources
 
-    return source_identities, fwd_operator, inv_operator, noise_norm
+    return src_identities, fwd_operator, inv_operator, noise_norm
 
 def compute_weighted_operator(fwd, inv, source_identities):
     """Function for computing a fidelity-weighted inverse operator.
