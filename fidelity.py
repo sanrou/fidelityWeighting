@@ -321,28 +321,32 @@ def apply_weighting(data, fwd, inv, labels, method):
     return source_data
 
 def apply_weighting_evoked(evoked, fwd, inv, labels, method):
-    """Apply fidelity-weighted inverse operator to evoked data.
+    """Apply fidelity-weighted inverse operator to evoked data and return
+    parcel time-series.
 
     Input arguments:
     ================
     evoked : Evoked
-        Trial-averaged evoked data. Evoked must be an instance of the
-        MNE-Python class Evoked.
+        Trial-averaged evoked data. The parameter 'evoked' must be an
+        instance of the MNE-Python class Evoked.
 
     fwd, inv : Inverse
-        The original forward and inverse operators.
+        The original forward and inverse operators. Here 'forward' and
+        'inverse' must be intances of the MNE-Python classes ForwardOperator
+        and InverseOperator respectively.
 
-    weighted_inv : ndarray [n_sources, n_sensors]
-        The fidelity-weighted inverse operator.
-
-    labels: list of Label
+    labels : list of Label
         List of labels or parcels belonging to the used parcellation. Each
         item must be an instance of the MNE-Python Label class.
+
+    method : str
+        The applied inversion method. Must be either 'MNE', 'dSPM',
+        'sLORETA', or 'eLORETA'.
 
     Output arguments:
     =================
     parcel_series : ndarray [n_parcels, n_samples]
-        The parcel time-series.
+        The inverse-modeled parcel time-series.
     """
     weighted_inv, noise_norm = weight_inverse_operator(fwd, inv, labels,
                                                        method)
