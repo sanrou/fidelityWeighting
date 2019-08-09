@@ -86,7 +86,6 @@ def plv(x, y, identities):
 
 def _compute_weights(source_series, parcel_series, identities, inverse):
     cplv_array = plv(source_series, parcel_series, identities)
-
     """Get weights and flip. This could be the output."""
     weights = scipy.sign(scipy.real(cplv_array)) * scipy.real(cplv_array) ** 2
 
@@ -137,7 +136,7 @@ def _load_data(fname_identities, fname_forward, fname_inverse):
 
 def _extract_operator_data(fwd, inv, labels_parc, method):
     """Function for extracting forward and inverse operator matrices from
-    the MNE-Python forward and inverse data structures, and the assembling
+    the MNE-Python forward and inverse data structures, and assembling
     the source identity map.
 
     Input arguments:
@@ -158,6 +157,15 @@ def _extract_operator_data(fwd, inv, labels_parc, method):
 
     Output arguments:
     =================
+    src_identities
+        The vertex-to-label mappings.
+
+    fwd_operator, inv_operator
+        The forward and inverse operator matrices.
+
+    noise_norm
+        None if no noise-normalization is used in the inversion method,
+        otherwise the data for performing noise normalization.
     """
 
     # counterpart to forwardOperator, [sources x sensors]
