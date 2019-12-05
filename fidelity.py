@@ -6,7 +6,7 @@ source time-series into parcel time-series.
 
 
 Generate fidelity weighting vector
-@author: Santeri Rouhinen, Tuomas Puoliväki, Felix Siebenhühner
+@author: Santeri Rouhinen, Tuomas Puoliväli, Felix Siebenhühner
 """
 
 from __future__ import division
