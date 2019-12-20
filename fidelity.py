@@ -4,7 +4,6 @@ source time-series into parcel time-series.
 
 
 
-
 Generate fidelity weighting vector
 @author: Santeri Rouhinen, Tuomas Puoliväli, Felix Siebenhühner
 """
@@ -94,7 +93,10 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
     the un-normalized operator."""
     weighted_inv = scipy.einsum('ij,i->ij', inv_mat, weights)
 
-    n_parcels = max(source_identities) + 1
+    id_set = set(source_identities)
+    id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
+    n_parcels = len(id_set)  # Number of unique IDs with ID >= 0
+
     """Initialize norm normalized weights. Maybe not necessary."""
     weights_normalized = scipy.zeros(len(weights))
     for parcel in range(n_parcels): # Normalize parcel level norms.
@@ -119,11 +121,9 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
 
 def _load_data(fname_identities, fname_forward, fname_inverse, delimiter=';'):
     """ Function for loading identities, and fwd and inv op matrices. """
-    
-    
     """Expected ids for parcels are 0 to n-1, where n is number of parcels,
     and -1 for sources that do not belong to any parcel."""
-    identities = genfromtxt(fname_identities, dtype='int32',
+    source_identities = genfromtxt(fname_identities, dtype='int32',
                                   delimiter=',')
 
     """Zero as ID doesn't work if parcel not belonging to any parcel is given
@@ -137,21 +137,21 @@ def _load_data(fname_identities, fname_forward, fname_inverse, delimiter=';'):
     inv = scipy.matrix(genfromtxt(fname_inverse,
                        dtype='float', delimiter=delimiter))
     
-    return identities, fwd, inv
+    return source_identities, fwd, inv
 
 
 
 def _extract_operator_data(fwd, inv_prep, labels_parc, method='dSPM'):
     """Function for extracting forward and inverse operator matrices from
-    the MNE-Python forward and inverse data structures, and the assembling
-    the source identity map.
+    the MNE-Python forward and inverse data structures, and assembling the
+    source identity map.
     
     Input arguments:
     ================
     fwd : ForwardOperator
         The fixed_orientation forward operator. 
         Instance of the MNE-Python class Forward.
-    inv : Inverse
+    inv_prep : Inverse
         The prepared inverse operator.  
         Instance of the MNE-Python class InverseOperator.
     labels_parc : list
@@ -175,8 +175,9 @@ def _extract_operator_data(fwd, inv_prep, labels_parc, method='dSPM'):
     """
 
     # counterpart to forwardOperator, [sources x sensors]
-    K, noise_norm, vertno, source_nn = _assemble_kernel(inv=inv_prep, label=None, method=method, pick_ori=None)
-                               
+    K, noise_norm, vertno, source_nn = _assemble_kernel(
+                    inv=inv_prep, label=None, method=method, pick_ori=None)
+    
     # get source space    
     src = inv_prep.get('src')
     vert_lh, vert_rh = src[0].get('vertno'), src[1].get('vertno')
@@ -185,18 +186,19 @@ def _extract_operator_data(fwd, inv_prep, labels_parc, method='dSPM'):
     src_ident_lh = np.full(len(vert_lh), -1, dtype='int')
     src_ident_rh = np.full(len(vert_rh), -1, dtype='int')
 
-    # find sources that belong to the left HS labels ()
+    # find sources that belong to the left hemisphere labels
     n_labels = len(labels_parc)
     for la, label in enumerate(labels_parc[:n_labels//2]):
         for v in label.vertices:
             src_ident_lh[np.where(vert_lh == v)] = la
 
-    # find sources that belong to the right HS labels
+    # find sources that belong to the right hemisphere labels. Add by n left.
     for la, label in enumerate(labels_parc[n_labels//2:n_labels]):
         for v in label.vertices:
             src_ident_rh[np.where(vert_rh == v)] = la
 
-    src_ident_rh[np.where(src_ident_rh<0)] = src_ident_rh[np.where(src_ident_rh<0)] -n_labels/2 
+    src_ident_rh[np.where(src_ident_rh<0)] = src_ident_rh[np.where(
+                                                src_ident_rh<0)] -n_labels/2 
     src_ident_rh = src_ident_rh + (n_labels // 2) 
     source_identities = np.concatenate((src_ident_lh,src_ident_rh))
 
@@ -229,12 +231,12 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
         The fidelity-weighted inverse operator.
     """
 
-
     """Generate oscillatory parcel signals."""
 
-    """Maybe one should test if unique non-negative values == max+1. This
-    is expected in the code."""
-    n_parcels = max(source_identities) + 1
+    """Get number of parcels."""
+    id_set = set(source_identities)
+    id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
+    n_parcels = len(id_set)  # Number of unique IDs >= 0
 
     """Samples to remove from ends to get rid of border effects."""
     time_cut = 20
@@ -257,7 +259,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
 
 
 
-def weight_inverse_operator(fwd, inv_prep, labels):
+def weight_inverse_operator(fwd, inv_prep, labels, method='dSPM'):
     """Compute fidelity-weighted inverse operator.
     Input arguments:
     ================
@@ -281,12 +283,12 @@ def weight_inverse_operator(fwd, inv_prep, labels):
     weighted_inv : ndarray
     """
 
-    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = 'dSPM')
+    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, 
+                                            inv_prep, labels, method = method)
 
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
-    inverse. 
-    This is not a problem if bad channels were interpolated."""
+    inverse. This is not a problem if bad channels are interpolated."""
     ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                       if ch not in fwd['info']['bads']])
     fwd_mat = fwd_mat[ind, :]
@@ -302,7 +304,7 @@ def weight_inverse_operator(fwd, inv_prep, labels):
 
 def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0, stop=None, method = 'dSPM'):
     """Apply fidelity-weighted inverse operator to evoked data.    
-                                                            ---> it also seems to work on "regular data" just as well!
+        ---> it also seems to work on "regular data" just as well!
     Input arguments:
     ================
     evoked : Evoked
