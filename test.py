@@ -9,7 +9,8 @@ from the MNE-python web page.
 
 from __future__ import division
 
-from fidelity import apply_weighting, apply_weighting_evoked
+from fidelity import apply_weighting_evoked
+# from fidelity import apply_weighting
 
 import mne
 from mne import (apply_forward, convert_forward_solution,
@@ -21,23 +22,24 @@ from mne.minimum_norm import (apply_inverse, read_inverse_operator,
 from mne.simulation import simulate_sparse_stc
 
 import numpy as np
-
 from surfer import Brain
+import os
+
 
 """Settings."""
 inversion_method = 'dSPM'
 
 """Read forward and inverse operators from disk."""
 fpath = sample.data_path()
-fpath_meg = fpath + '/MEG/sample'
+fpath_meg = os.path.join(fpath, 'MEG', 'sample')
 
-fname_forward = fpath_meg + '/sample_audvis-meg-oct-6-fwd.fif'
-fname_inverse = fpath_meg + '/sample_audvis-meg-oct-6-meg-inv.fif'
+fname_forward = os.path.join(fpath_meg, 'sample_audvis-meg-oct-6-fwd.fif')
+fname_inverse = os.path.join(fpath_meg, 'sample_audvis-meg-oct-6-meg-inv.fif')
 
 fwd = read_forward_solution(fname_forward)
 inv = read_inverse_operator(fname_inverse)
 
-"""Force fixed source orientation mode."""
+"""Force fixed source orientation mode."""  #Add option for free direction?
 fwd_fixed = convert_forward_solution(fwd, force_fixed=True, use_cps=True)
 
 """Prepare the inverse operator for use."""
@@ -45,7 +47,7 @@ inv = prepare_inverse_operator(inv, 1, 1./9, inversion_method)
 
 """Read labels from FreeSurfer annotation files."""
 subject = 'sample'
-subjects_dir = fpath + '/subjects'
+subjects_dir = os.path.join(fpath, 'subjects')
 parcellation = 'aparc.a2009s'
 
 labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
@@ -67,11 +69,11 @@ simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=1, times=times,
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
                        info=fwd_fixed['info'], use_cps=True, verbose=True)
 
-"""Apply weighting."""
+"""Apply weighting. Use good channels."""
 ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                   if ch not in fwd['info']['bads']])
 
-source_data = apply_weighting(evoked._data[ind, :], fwd_fixed, inv,
+source_data = apply_weighting_evoked(evoked._data[ind, :], fwd_fixed, inv,
                               labels, inversion_method)
 n_sources = np.shape(source_data)[0]
 
@@ -85,9 +87,9 @@ brain.add_foci(coords=simulated_stc.lh_vertno, coords_as_verts=True,
 brain.add_foci(coords=simulated_stc.rh_vertno, coords_as_verts=True,
                hemi='rh', map_surface=surf, color='red')
 
-# TODO: this outputs some vtk error, not sure why. It seems to work anyway
+# TODO: this outputs some vtk error, not sure why. It seems to work anyway if one calls the script.
 
-raw_input('press enter to continue')
+input('press enter to continue. Visualize dipoles.')
 
 """Visualize the inverse modeled data."""
 vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
@@ -100,7 +102,8 @@ stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
          time_viewer=True, colormap='mne', alpha=0.5, transparent=True)
 
 """Compute the parcel time-series."""
+print('Add time samples to see evoked activity')
 parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv,
                                        labels, inversion_method)
 
-raw_input('press enter to exit')
+input('press enter to exit')
