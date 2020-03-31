@@ -141,7 +141,7 @@ def _load_data(fname_identities, fname_forward, fname_inverse, delimiter=';'):
 
 
 
-def _extract_operator_data(fwd, inv_prep, labels_parc, method='dSPM'):
+def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
     """Function for extracting forward and inverse operator matrices from
     the MNE-Python forward and inverse data structures, and assembling the
     source identity map.
@@ -154,7 +154,7 @@ def _extract_operator_data(fwd, inv_prep, labels_parc, method='dSPM'):
     inv_prep : Inverse
         The prepared inverse operator.  
         Instance of the MNE-Python class InverseOperator.
-    labels_parc : list
+    labels : list
         List of labels belonging to the used parcellation, e.g. the
         Desikan-Killiany, Destrieux, or Schaefer parcellation.
         May not contain 'trash' labels/parcels (unknown or medial wall), those
@@ -174,9 +174,9 @@ def _extract_operator_data(fwd, inv_prep, labels_parc, method='dSPM'):
     
     """
 
-    # counterpart to forwardOperator, [sources x sensors]
+    # counterpart to forwardOperator, [sources x sensors]. ### pick_ori None for free, 'normal' for fixed orientation.
     K, noise_norm, vertno, source_nn = _assemble_kernel(
-                    inv=inv_prep, label=None, method=method, pick_ori=None)
+                    inv=inv_prep, label=None, method=method, pick_ori='normal')
     
     # get source space    
     src = inv_prep.get('src')
@@ -187,13 +187,13 @@ def _extract_operator_data(fwd, inv_prep, labels_parc, method='dSPM'):
     src_ident_rh = np.full(len(vert_rh), -1, dtype='int')
 
     # find sources that belong to the left hemisphere labels
-    n_labels = len(labels_parc)
-    for la, label in enumerate(labels_parc[:n_labels//2]):
+    n_labels = len(labels)
+    for la, label in enumerate(labels[:n_labels//2]):
         for v in label.vertices:
             src_ident_lh[np.where(vert_lh == v)] = la
 
     # find sources that belong to the right hemisphere labels. Add by n left.
-    for la, label in enumerate(labels_parc[n_labels//2:n_labels]):
+    for la, label in enumerate(labels[n_labels//2:n_labels]):
         for v in label.vertices:
             src_ident_rh[np.where(vert_rh == v)] = la
 
@@ -302,7 +302,7 @@ def weight_inverse_operator(fwd, inv_prep, labels, method='dSPM'):
 
 
 
-def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0, stop=None, method = 'dSPM'):
+def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0, stop=None, method = 'dSPM', out_dim = 'parcel'):
     """Apply fidelity-weighted inverse operator to evoked data.    
         ---> it also seems to work on "regular data" just as well!
     Input arguments:
@@ -326,18 +326,21 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
     method : str
         The inversion method. Default 'dSPM'.
         Other methods ('MNE', 'sLORETA', 'eLORETA') have not been tested.  
+    out_dim : str
+        Output mode. Default 'parcel', which means parcel time series output.
+        If other than 'parcel', output is source time series.
         
     Output arguments:
     =================
-    parcel_series : ndarray [n_parcels, n_samples]
-        The parcel time-series.
+    time_series : ndarray [n_parcels OR sources, n_samples]
+        The parcel (default) OR source time-series.
     """
 
 
     if stop==None:
         stop = len(evoked._data[0])
         
-        
+    
     source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = 'dSPM')
 
     """If there are bad channels the corresponding rows can be missing
@@ -346,22 +349,25 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
     ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                       if ch not in fwd['info']['bads']])
     fwd_mat = fwd_mat[ind, :]
-
-    """Build matrix mapping sources to parcels."""
-    n_parcels = np.max(source_identities) + 1
-    source_to_parcel_map = scipy.zeros((n_parcels, len(source_identities)),
-                                        dtype=scipy.int8)
-    for i, identity in enumerate(source_identities):
-        if (identity >= 0):
-            source_to_parcel_map[identity, i] = 1
-
-    """Collapse data to parcels."""
-    estimated_sources = np.dot(weighted_inv, evoked._data[ind, start : stop])
-
-    parcel_series = np.dot(source_to_parcel_map, estimated_sources)
-    parcel_series = parcel_series
     
-    return parcel_series
+    estimated_sources = np.dot(weighted_inv, evoked._data[ind, start : stop])
+    
+    if out_dim == 'parcel':
+        """Build matrix mapping sources to parcels."""
+        n_parcels = np.max(source_identities) + 1
+        source_to_parcel_map = scipy.zeros((n_parcels, len(source_identities)),
+                                            dtype=scipy.int8)
+        for i, identity in enumerate(source_identities):
+            if (identity >= 0):
+                source_to_parcel_map[identity, i] = 1
+    
+        """Collapse data to parcels."""
+        parcel_series = np.dot(source_to_parcel_map, estimated_sources)
+        time_series = parcel_series
+    else:
+        time_series = estimated_sources
+    
+    return time_series
 
 
 

@@ -9,10 +9,9 @@ from the MNE-python web page.
 
 from __future__ import division
 
-from fidelity import apply_weighting_evoked
+from fidelity import apply_weighting_evoked, weight_inverse_operator
 # from fidelity import apply_weighting
 
-import mne
 from mne import (apply_forward, convert_forward_solution,
                  read_forward_solution, read_labels_from_annot,
                  SourceEstimate)
@@ -39,10 +38,10 @@ fname_inverse = os.path.join(fpath_meg, 'sample_audvis-meg-oct-6-meg-inv.fif')
 fwd = read_forward_solution(fname_forward)
 inv = read_inverse_operator(fname_inverse)
 
-"""Force fixed source orientation mode."""  #Add option for free direction?
+"""Force fixed source orientation mode."""  # Add option for free direction?
 fwd_fixed = convert_forward_solution(fwd, force_fixed=True, use_cps=True)
 
-"""Prepare the inverse operator for use."""
+"""Prepare the inverse operator for use."""  # Inverse loads with free orientation
 inv = prepare_inverse_operator(inv, 1, 1./9, inversion_method)
 
 """Read labels from FreeSurfer annotation files."""
@@ -63,8 +62,8 @@ def data_fun(times):
     return (50e-9 * np.sin(30. * times) *
             np.exp(- (times - 0.15 + 0.05 * rng.randn(1)) ** 2 / 0.01))
 
-simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=1, times=times,
-                                    random_state=42, data_fun=data_fun)
+simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=2, times=times,
+                                    random_state=42, data_fun=data_fun)     # Gives an error later if n_dipoles = 1, as it puts a source only to the right hemisphere.
 
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
                        info=fwd_fixed['info'], use_cps=True, verbose=True)
@@ -73,9 +72,13 @@ evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
 ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                   if ch not in fwd['info']['bads']])
 
-source_data = apply_weighting_evoked(evoked._data[ind, :], fwd_fixed, inv,
-                              labels, inversion_method)
+weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method='dSPM')
+
+source_data = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
+                              labels, method=inversion_method, out_dim='source')
 n_sources = np.shape(source_data)[0]
+
+
 
 """Visualize dipole locations."""
 surf = 'inflated'
@@ -83,15 +86,15 @@ brain = Brain(subject_id=subject, subjects_dir=subjects_dir, hemi='both',
               surf=surf)
 
 brain.add_foci(coords=simulated_stc.lh_vertno, coords_as_verts=True,
-               hemi='lh', map_surface=surf, color='red')
+               hemi='lh', map_surface=surf, color='red')    
 brain.add_foci(coords=simulated_stc.rh_vertno, coords_as_verts=True,
                hemi='rh', map_surface=surf, color='red')
 
-# TODO: this outputs some vtk error, not sure why. It seems to work anyway if one calls the script.
+# TODO: this outputs some vtk error, not sure why. It seems to work anyway if one calls the script. Might be related to having no sources in left hemisphere if too few sources are created.
 
-input('press enter to continue. Visualize dipoles.')
+input('press enter to continue. Visualize dipoles. Time point 0.15 s has activity')
 
-"""Visualize the inverse modeled data."""
+"""Visualize the inverse modeled data."""   # Parcel space data visualization would be more interesting.
 vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
 
 stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0,
@@ -101,9 +104,9 @@ stc_orig = apply_inverse(evoked, inv, 1/9., inversion_method) # original
 stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
          time_viewer=True, colormap='mne', alpha=0.5, transparent=True)
 
-"""Compute the parcel time-series."""
-print('Add time samples to see evoked activity')
-parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv,
-                                       labels, inversion_method)
+# """Compute the parcel time-series."""
+# print('Add time samples to see evoked activity')
+# parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv,
+#                                        labels, inversion_method)
 
 input('press enter to exit')
