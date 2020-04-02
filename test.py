@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""Script for testing the fidelity-weighting method.
+"""Script for demonstrating the fidelity-weighting method.
 
 References:
 
@@ -25,6 +25,8 @@ from surfer import Brain
 import os
 
 
+
+print('Loading sample data...')
 """Settings."""
 inversion_method = 'dSPM'
 
@@ -52,6 +54,7 @@ parcellation = 'aparc.a2009s'
 labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
                                 parc=parcellation)
 
+print('Simulating data...')
 """Simulate source-space data and project it to the sensors."""
 fs = 1000
 times = np.arange(0, 300, dtype='float') / fs
@@ -76,6 +79,10 @@ weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method='dSPM')
 
 source_data = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
                               labels, method=inversion_method, out_dim='source')
+
+parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
+                              labels, method=inversion_method, out_dim='parcel')
+
 n_sources = np.shape(source_data)[0]
 
 
@@ -89,10 +96,12 @@ brain.add_foci(coords=simulated_stc.lh_vertno, coords_as_verts=True,
                hemi='lh', map_surface=surf, color='red')    
 brain.add_foci(coords=simulated_stc.rh_vertno, coords_as_verts=True,
                hemi='rh', map_surface=surf, color='red')
+brain.show_view('frontal')
 
 # TODO: this outputs some vtk error, not sure why. It seems to work anyway if one calls the script. Might be related to having no sources in left hemisphere if too few sources are created.
 
-input('press enter to continue. Visualize dipoles. Time point 0.15 s has activity')
+input('Dipoles visualized. Left-hold-drag to rotate. Press enter here to continue.')
+print('Source level visualization. Close visualization windows to continue.')
 
 """Visualize the inverse modeled data."""   # Parcel space data visualization would be more interesting.
 vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
@@ -102,11 +111,157 @@ stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0,
 stc_orig = apply_inverse(evoked, inv, 1/9., inversion_method) # original
 
 stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
-         time_viewer=True, colormap='mne', alpha=0.5, transparent=True)
+         time_viewer=True, colormap='mne', alpha=0.5, transparent=True,
+         views=['fro'], initial_time=0.150)
 
-# """Compute the parcel time-series."""
-# print('Add time samples to see evoked activity')
-# parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv,
-#                                        labels, inversion_method)
 
-input('press enter to exit')
+
+### testing code for parcellation visualization.
+## Need to do:
+# Assumes that there are 150 time samples. Take sample at 150 ms. Sort data to lh, then rh. Now interleaved. Drop medial wall ('unknown-lh' and 'unknown-rh').
+p_data_sorted = np.ravel(parcel_series[:,150])
+p_data_sorted = np.concatenate((p_data_sorted[0:-2:2], p_data_sorted[1:-2:2]))
+
+
+# Parcel data visualization function.
+import nibabel as nib
+
+def plot_4_view(data1,parcel_names,parcellation,
+                style='linear',alpha=0.95,
+                zmin=None,zmax=None,zmid=None,cmap='auto',show=True,
+                filename=None,surface='inflated',null_val=0,
+                transparent = True,subj='fsaverage',                
+                sub_dir='K:\\palva\\resting_state\\_fsaverage\\'):
+    
+    '''         
+    Plots 1d array of data. Plotted views are lateral and medial on both HS.
+    Used brain is fsaverage.
+    
+    INPUT:            
+        data1:        1-dimensional data array, len = # parcels. 
+                      1st half must be left HS, 2nd half right.
+        parcel_names: Parcel_names, in the same order as the data.                       
+        parcellation: Abbreviation, e.g. 'parc2018yeo7_100' or "parc2009'
+        style:        'linear': pos. values only, 'divergent': both pos & neg
+        alpha:        Transparency value; transparency might look weird.
+        zmin:         The minimum value of a linear z-axis, or center of a 
+                        divergent axis (thus should be 0)
+        zmax:         Maximum value of linear z-axis, or max/-min of div.               
+        zmid:         Midpoint of z-axis.
+        cmap:         Colormap by name. Default is 'rocket' for linear, and
+                        'icefire' for divergent; other recommended options: 
+                         'YlOrRd' for linear,  or 'bwr' for divergent.
+        show:         If False, plot is closed after creation. 
+        filename:     File to save plot as, e.g. 'plot_13.png'
+        surface:      Surface type.
+        null_val:     Value for unassigned vertices
+        transparent:  Whether parcels with minimum value should be transparent.
+        
+    OUTPUT:
+        instance of surfer.Brain, if show==True
+    '''
+    
+    N_parc = len(data1)    # the number of actually used parcels
+    if len(parcel_names) != N_parc:
+        raise ValueError('Number of parcels != len(data1) ')
+    
+    
+    if parcel_names[0][-3:] != '-lh':
+       parcel_names[:N_parc//2] = [p + '-lh' for p in parcel_names[:N_parc//2]]
+       parcel_names[N_parc//2:] = [p + '-rh' for p in parcel_names[N_parc//2:]]
+
+    
+    hemi = 'split'
+        
+    #### load parcels
+    if parcellation == 'parc2009':                
+        aparc_lh_file = sub_dir + '\\' + subj + '\\label\\lh.aparc.a2009s.annot'
+        aparc_rh_file = sub_dir + '\\' + subj + '\\label\\rh.aparc.a2009s.annot'
+    else:
+        aparc_lh_file = sub_dir + '\\' + subj + '\\label\\lh.' + parcellation + '.annot'  
+        aparc_rh_file = sub_dir + '\\' + subj + '\\label\\rh.' + parcellation + '.annot' 
+        
+    labels_lh, ctab, names_lh = nib.freesurfer.read_annot(aparc_lh_file)
+    labels_rh, ctab, names_rh = nib.freesurfer.read_annot(aparc_rh_file) 
+    
+    names_lh  = [str(n)[2:-1] +'-lh' for n in names_lh]
+    names_rh  = [str(n)[2:-1] + '-rh' for n in names_rh]
+    
+    N_label_lh   = len(names_lh)      # number of labels/parcels with unkown and med. wall included
+    N_label_rh   = len(names_rh)
+
+    #### map parcels in data to loaded parcels
+    indicesL = np.full(N_label_lh,-1)
+    indicesR = np.full(N_label_rh,-1)
+    
+    for i in range(N_parc):
+        for j in range(N_label_lh):
+            if names_lh[j]==parcel_names[i]:
+                indicesL[j]=i 
+        for j in range(N_label_rh):
+            if names_rh[j]==parcel_names[i]:            
+                indicesR[j]=i-N_parc//2     
+    indicesL += 1
+    indicesR += 1
+
+    
+    ## assign values to loaded parcels
+    data1L     = np.concatenate(([null_val],data1[:N_parc//2]))
+    data1R     = np.concatenate(([null_val],data1[N_parc//2:]))
+    data_left  = data1L[indicesL]
+    data_right = data1R[indicesR]
+    
+    ## map parcel values to vertices 
+    vtx_data_left = data_left[labels_lh]
+    vtx_data_left[labels_lh == -1] = null_val
+    vtx_data_right = data_right[labels_rh]
+    vtx_data_right[labels_rh == -1] = null_val
+
+    
+    if zmin == None:
+        zmin = 0
+    if zmax == None:
+        zmax = np.nanmax(abs(data1))
+    if zmid == None:
+        zmid = zmax/2
+
+    
+    if style == 'linear':           # shows only positive values 
+        center = None
+    elif style == 'divergent':      # shows positive and negative values
+        center =  0
+    
+       
+    #### plot to 4-view Brain
+    hemi = 'split'
+    brain = Brain(subj, hemi, background = 'white', surf=surface, size=[900,800], 
+                  cortex = 'classic', subjects_dir=sub_dir,  views=['lat', 'med']) 
+    brain.add_data(vtx_data_left,  zmin, zmax, colormap=cmap, center= center, alpha=alpha, hemi='lh')
+    brain.add_data(vtx_data_right, zmin, zmax, colormap=cmap, center= center, alpha=alpha, hemi='rh')
+    
+    # adjust colorbar
+    brain.scale_data_colormap(zmin, zmid, zmax, transparent=transparent, 
+                              center=center, alpha=alpha, verbose=None) #data=None, hemi=None, 
+
+
+    if filename != None:
+        brain.save_image(filename) 
+    
+    if show:
+        return brain
+
+
+# Get sorted label names. Drop medial wall.
+labels_sorted = []
+for label in np.concatenate((labels[0:-2:2], labels[1:-2:2])):
+    labels_sorted.append(label.name)
+
+plot_4_view(p_data_sorted,labels_sorted,parcellation,
+                style='linear',alpha=0.95,
+                zmin=None,zmax=None,zmid=None,cmap='auto',show=True,
+                filename=None,surface='inflated',null_val=0,
+                transparent = True,subj='sample',                
+                sub_dir=subjects_dir)
+    
+input('Parcel activity at 150 ms visualized. Left-hold-drag to rotate. Press enter to continue.')
+
