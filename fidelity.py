@@ -204,6 +204,10 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
 
     # extract fwd and inv matrices
     fwd_mat          = fwd['sol']['data'] # sensors x sources
+
+    # noise_norm is used with dSPM and sLORETA. Other methods return null.
+    if method != 'dSPM' or method != 'sLORETA':
+        noise_norm = 1.
     inv_mat          = K * noise_norm     # sources x sensors 
 
     return source_identities, fwd_mat, inv_mat
@@ -341,7 +345,7 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
         stop = len(evoked._data[0])
         
     
-    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = 'dSPM')
+    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = method)
 
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
@@ -415,7 +419,7 @@ def fidelity_estimation(N_parcels, N_samples, fwd, inv_prep, weighted_inv, label
         Cross-patch PLV of the reconstructed time series among all parcel pairs.    
     '''
     
-    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = 'dSPM')
+    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = method)
     timeCut = 20
     N_samples2 = N_samples + 2*timeCut
 

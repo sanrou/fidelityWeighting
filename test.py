@@ -10,7 +10,6 @@ from the MNE-python web page.
 from __future__ import division
 
 from fidelity import apply_weighting_evoked, weight_inverse_operator
-# from fidelity import apply_weighting
 
 from mne import (apply_forward, convert_forward_solution,
                  read_forward_solution, read_labels_from_annot,
@@ -28,7 +27,7 @@ import os
 
 print('Loading sample data...')
 """Settings."""
-inversion_method = 'dSPM'
+inversion_method = 'dSPM'   # Options, MNE, dSPM, sLORETA, eLORETA
 
 """Read forward and inverse operators from disk."""
 fpath = sample.data_path()
@@ -54,6 +53,7 @@ parcellation = 'aparc.a2009s'
 labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
                                 parc=parcellation)
 
+
 print('Simulating data...')
 """Simulate source-space data and project it to the sensors."""
 fs = 1000
@@ -75,7 +75,7 @@ evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
 ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                   if ch not in fwd['info']['bads']])
 
-weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method='dSPM')
+weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method=inversion_method)     ### Error with MNE inversion method. Error cause fixed in fidelity.py (noise_norm).
 
 source_data = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
                               labels, method=inversion_method, out_dim='source')
@@ -93,9 +93,9 @@ brain = Brain(subject_id=subject, subjects_dir=subjects_dir, hemi='both',
               surf=surf)
 
 brain.add_foci(coords=simulated_stc.lh_vertno, coords_as_verts=True,
-               hemi='lh', map_surface=surf, color='red')    
+                hemi='lh', map_surface=surf, color='red')    
 brain.add_foci(coords=simulated_stc.rh_vertno, coords_as_verts=True,
-               hemi='rh', map_surface=surf, color='red')
+                hemi='rh', map_surface=surf, color='red')
 brain.show_view('frontal')
 
 # TODO: this outputs some vtk error, not sure why. It seems to work anyway if one calls the script. Might be related to having no sources in left hemisphere if too few sources are created.
@@ -103,16 +103,16 @@ brain.show_view('frontal')
 input('Dipoles visualized. Left-hold-drag to rotate. Press enter here to continue.')
 print('Source level visualization. Close visualization windows to continue.')
 
+
 """Visualize the inverse modeled data."""   # Parcel space data visualization would be more interesting.
 vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
 
-stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0,
-                     tstep=0.001) # weighted
+stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0, tstep=0.001) # weighted
 stc_orig = apply_inverse(evoked, inv, 1/9., inversion_method) # original
 
 stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
-         time_viewer=True, colormap='mne', alpha=0.5, transparent=True,
-         views=['fro'], initial_time=0.150)
+          time_viewer=True, colormap='mne', alpha=0.5, transparent=True,
+          views=['fro'], initial_time=0.150)
 
 
 
@@ -251,11 +251,12 @@ def plot_4_view(data1,parcel_names,parcellation,
         return brain
 
 
-# Get sorted label names. Drop medial wall.
+""" Get sorted label names. Drop medial wall."""
 labels_sorted = []
 for label in np.concatenate((labels[0:-2:2], labels[1:-2:2])):
     labels_sorted.append(label.name)
 
+# Plot closes down when the program is called in Anaconda prompt for some reason. Works fine when called directly in editor.
 plot_4_view(p_data_sorted,labels_sorted,parcellation,
                 style='linear',alpha=0.95,
                 zmin=None,zmax=None,zmid=None,cmap='auto',show=True,
