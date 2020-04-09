@@ -60,18 +60,18 @@ def plv(x, y, source_identities):
     """ Function for computing the complex phase-locking value."""
     
     """Change to amplitude 1, keep angle using Euler's formula."""
-    x = scipy.exp(1j*(asmatrix(scipy.angle(x))))
-    y = scipy.exp(1j*(asmatrix(scipy.angle(y))))
+    x = np.exp(1j*(asmatrix(np.angle(x))))
+    y = np.exp(1j*(asmatrix(np.angle(y))))
 
     """Get cPLV needed for flips and weighting."""
-    cplv = scipy.zeros(len(source_identities), dtype='complex')
+    cplv = np.zeros(len(source_identities), dtype='complex')
 
     for i, identity in enumerate(source_identities):
         """Compute cPLV only of parcel source pairs of sources that
         belong to that parcel. One source belong to only one parcel."""
         if (source_identities[i] >= 0):
-            cplv[i] = (scipy.sum((scipy.asarray(y[identity])) *
-                       scipy.conjugate(scipy.asarray(x[i]))))
+            cplv[i] = (np.sum((np.asarray(y[identity])) *
+                       np.conjugate(np.asarray(x[i]))))
 
     cplv /= np.shape(x)[1]
     return cplv
@@ -79,41 +79,40 @@ def plv(x, y, source_identities):
 
 
 def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
-    """Function for computing the weights of the weighted inverse operator.
-    """
+    """Function for computing the weights of the weighted inverse operator."""
     
     cplv_array = plv(source_series, parcel_series, source_identities)
-
+    
     """Get weights and flip. This could be the output."""
-    weights = scipy.sign(scipy.real(cplv_array)) * scipy.real(cplv_array) ** 2    
-
+    weights = np.sign(np.real(cplv_array)) * np.real(cplv_array) ** 2    
+    
     """Create weighted inverse operator and normalize the norm of weighted inv op
     to match original inv op's norm."""
     """Multiply sensor dimension in inverseOperator by weight. This one would be
     the un-normalized operator."""
-    weighted_inv = scipy.einsum('ij,i->ij', inv_mat, weights)
-
+    weighted_inv = np.einsum('ij,i->ij', inv_mat, weights)
+    
     id_set = set(source_identities)
     id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
     n_parcels = len(id_set)  # Number of unique IDs with ID >= 0
-
+    
     """Initialize norm normalized weights. Maybe not necessary."""
-    weights_normalized = scipy.zeros(len(weights))
+    weights_normalized = np.zeros(len(weights))
     for parcel in range(n_parcels): # Normalize parcel level norms.
         # Index sources belonging to parcel
         ii = [i for i, source in enumerate(source_identities) if source == parcel]
-
+        
         # Normalize per parcel.
         weights_normalized[ii] = weights[ii] * (norm(inv_mat[ii]) /
                                                 norm(weighted_inv[ii]))
-
+    
     """Parcel level normalized operator."""
-    weighted_inv = scipy.einsum('ij,i->ij', inv_mat, weights_normalized)
+    weighted_inv = np.einsum('ij,i->ij', inv_mat, weights_normalized)
 
     """Operator level normalized operator. If there are sources not in any
     parcel weightedInvOp gets Nan values due to normalizations."""
-    weighted_inv *= norm(inv_mat) / norm(scipy.nan_to_num(weighted_inv))
-    weighted_inv = scipy.nan_to_num(weighted_inv)
+    weighted_inv *= norm(inv_mat) / norm(np.nan_to_num(weighted_inv))
+    weighted_inv = np.nan_to_num(weighted_inv)
 
     return weighted_inv, weights
 
@@ -130,11 +129,11 @@ def _load_data(fname_identities, fname_forward, fname_inverse, delimiter=';'):
     zero value. There could be sources not in any parcel. Sparce parcels that
     is. Should initialize those to -1 or Nan."""
     # sensors x sources
-    fwd = scipy.matrix(genfromtxt(fname_forward,
+    fwd = np.matrix(genfromtxt(fname_forward,
                                   dtype='float', delimiter=delimiter))
 
     # sources x sensors
-    inv = scipy.matrix(genfromtxt(fname_inverse,
+    inv = np.matrix(genfromtxt(fname_inverse,
                        dtype='float', delimiter=delimiter))
     
     return source_identities, fwd, inv
@@ -173,7 +172,7 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
         The prepared inverse operator matrix.
     
     """
-
+    
     # counterpart to forwardOperator, [sources x sensors]. ### pick_ori None for free, 'normal' for fixed orientation.
     K, noise_norm, vertno, source_nn = _assemble_kernel(
                     inv=inv_prep, label=None, method=method, pick_ori='normal')
@@ -181,35 +180,35 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
     # get source space    
     src = inv_prep.get('src')
     vert_lh, vert_rh = src[0].get('vertno'), src[1].get('vertno')
-
+    
     # get labels, vertices and src-identities
     src_ident_lh = np.full(len(vert_lh), -1, dtype='int')
     src_ident_rh = np.full(len(vert_rh), -1, dtype='int')
-
+    
     # find sources that belong to the left hemisphere labels
     n_labels = len(labels)
     for la, label in enumerate(labels[:n_labels//2]):
         for v in label.vertices:
             src_ident_lh[np.where(vert_lh == v)] = la
-
+    
     # find sources that belong to the right hemisphere labels. Add by n left.
     for la, label in enumerate(labels[n_labels//2:n_labels]):
         for v in label.vertices:
             src_ident_rh[np.where(vert_rh == v)] = la
-
+    
     src_ident_rh[np.where(src_ident_rh<0)] = src_ident_rh[np.where(
                                                 src_ident_rh<0)] -n_labels/2 
     src_ident_rh = src_ident_rh + (n_labels // 2) 
     source_identities = np.concatenate((src_ident_lh,src_ident_rh))
-
+    
     # extract fwd and inv matrices
     fwd_mat          = fwd['sol']['data'] # sensors x sources
-
+    
     # noise_norm is used with dSPM and sLORETA. Other methods return null.
     if method != 'dSPM' or method != 'sLORETA':
         noise_norm = 1.
     inv_mat          = K * noise_norm     # sources x sensors 
-
+    
     return source_identities, fwd_mat, inv_mat
 
 
@@ -234,25 +233,25 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     weighted_inv : ndarray
         The fidelity-weighted inverse operator.
     """
-
+    
     """Generate oscillatory parcel signals."""
-
+    
     """Get number of parcels."""
     id_set = set(source_identities)
     id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
     n_parcels = len(id_set)  # Number of unique IDs >= 0
-
+    
     """Samples to remove from ends to get rid of border effects."""
     time_cut = 20
-
+    
     """Original values 1, 31. Higher number wider span."""
-    widths = scipy.arange(5, 6)
-
+    widths = np.arange(5, 6)
+    
     """Make and clone parcel time series to source time series."""
     parcel_series = make_series(n_parcels, n_samples, time_cut, widths)
     source_series_orig = parcel_series[source_identities]
     source_series_orig[source_identities < 0] = 0
-
+    
     """Forward then inverse model source series."""
     source_series = np.dot(inv_mat,(np.dot(fwd_mat ,source_series_orig)))
     
@@ -286,17 +285,17 @@ def weight_inverse_operator(fwd, inv_prep, labels, method='dSPM'):
     =================
     weighted_inv : ndarray
     """
-
+    
     source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, 
                                             inv_prep, labels, method = method)
-
+    
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
     inverse. This is not a problem if bad channels are interpolated."""
     ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                       if ch not in fwd['info']['bads']])
     fwd_mat = fwd_mat[ind, :]
-
+    
     """Compute the weighted operator."""
     weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
                                              source_identities)
@@ -339,14 +338,14 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
     time_series : ndarray [n_parcels OR sources, n_samples]
         The parcel (default) OR source time-series.
     """
-
-
+    
+    
     if stop==None:
         stop = len(evoked._data[0])
         
     
     source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = method)
-
+    
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
     inverse."""
@@ -359,8 +358,8 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
     if out_dim == 'parcel':
         """Build matrix mapping sources to parcels."""
         n_parcels = np.max(source_identities) + 1
-        source_to_parcel_map = scipy.zeros((n_parcels, len(source_identities)),
-                                            dtype=scipy.int8)
+        source_to_parcel_map = np.zeros((n_parcels, len(source_identities)),
+                                            dtype=np.int8)
         for i, identity in enumerate(source_identities):
             if (identity >= 0):
                 source_to_parcel_map[identity, i] = 1
@@ -377,22 +376,19 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
 
 
 
+### Log of fidelity_estimation
+    # Removed N_parcels input (computed inside from labels)
 
 
 
 
 
-
-def fidelity_estimation(N_parcels, N_samples, fwd, inv_prep, weighted_inv, labels, method = 'dSPM'):
-    ''' compute fidelity and cross-patch PLV (see Korhonen et al 2014)
+def fidelity_estimation(fwd, inv_prep, weighted_inv, labels, method = 'dSPM', N_samples = 20000):
+    ''' Compute fidelity and cross-patch PLV (see Korhonen et al 2014)
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
     Input arguments: 
     ================
-    N_parcels: int
-        the number of actual parcels   
-    N_samples: int
-        the number of samples in the simulated data
     fwd : ForwardOperator
         The fixed_orientation forward operator. 
         Instance of the MNE-Python Forward class.
@@ -404,8 +400,9 @@ def fidelity_estimation(N_parcels, N_samples, fwd, inv_prep, weighted_inv, label
     labels: list of labels/parcels
         List of labels or parcels belonging to the used parcellation. Each
         item must be an instance of the MNE-Python Label class.
-        May not contain 'trash' labels/parcels (unknown or medial wall), those
-        should be deleted from the labels array!
+        It is recommended to delete 'trash' labels/parcels (unknown or medial wall)!
+    N_samples: int
+        the number of samples in the simulated data
 
     method : str
         The inversion method. Default 'dSPM'.
@@ -421,52 +418,49 @@ def fidelity_estimation(N_parcels, N_samples, fwd, inv_prep, weighted_inv, label
     
     source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = method)
     timeCut = 20
-    N_samples2 = N_samples + 2*timeCut
-
     
-    checkParcelTimeSeries = scipy.random.randn(N_parcels+1, N_samples2)  # Generate random signal
-
-    widths=scipy.arange(5, 6)
-
-    for i in range(N_parcels):
-        checkParcelTimeSeries[i] = signal.cwt(checkParcelTimeSeries[i], signal.ricker, widths)     # Mexican hat continuous wavelet transform random series.
+    N_parcels = len(labels)
     
-    checkParcelTimeSeries = signal.hilbert(checkParcelTimeSeries)     # Hilbert transform. Get analytic signal.
-    checkParcelTimeSeries = checkParcelTimeSeries[:, timeCut:-timeCut]    # Cut off borders
+    # Use only good channels.  ### TODO: check if this works if bad channels have already been purged.
+    ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
+                  if ch not in fwd['info']['bads']])
+    fwd_mat = fwd_mat[ind, :]
+    
+    widths=np.arange(5, 6)
+    
+    ## Create oscillating signal per parcel
+    checkParcelTimeSeries = make_series(N_parcels, N_samples, timeCut, widths)
     
     # Change to amplitude 1, keep angle using Euler's formula.
-    checkParcelTimeSeries = scipy.exp(1j*(scipy.asmatrix(scipy.angle(checkParcelTimeSeries))))
+    checkParcelTimeSeries = np.exp(1j*(np.asmatrix(np.angle(checkParcelTimeSeries))))
     
     ## Clone parcel time series to source time series
-    checkSourceTimeSeries = 1j* scipy.zeros((len(source_identities), int(checkParcelTimeSeries.shape[1])), dtype=float)  # Zeros (complex) sources x samples
+    checkSourceTimeSeries = checkParcelTimeSeries[source_identities]
     
-    for i,identity in enumerate(source_identities):              # i-teration and identity
-        if identity > -1:                                       # -1 as identity means source does not belong to any parcel. Other negative values should not really be there.
-            checkSourceTimeSeries[i] = checkParcelTimeSeries[identity]    # Clone parcel time series to source space. 
-    
+    # Forward model source time series
     sensorTimeSeries = np.dot(fwd_mat,checkSourceTimeSeries)
     
     
     # Binary matrix of sources belonging to parcels
-    sourceParcelMatrix = scipy.zeros((N_parcels,len(source_identities)), dtype=scipy.int8)
+    sourceParcelMatrix = np.zeros((N_parcels,len(source_identities)), dtype=np.int8)
     for i,identity in enumerate(source_identities):
         if identity >= 0:     # Don't place negative values. These should be sources not belonging to any parcel.
             sourceParcelMatrix[identity,i] = 1
        
-    fidelity   = scipy.zeros(N_parcels, dtype=scipy.float32)  # For the weighted inverse operator
-    cpPLV      = scipy.zeros([N_samples, N_parcels, N_parcels], dtype=scipy.float32)  # For the weighted inverse operator
-
+    fidelity   = np.zeros(N_parcels, dtype=np.float32)  # For the weighted inverse operator
+    cpPLV      = np.zeros([N_samples, N_parcels, N_parcels], dtype=np.float32)  # For the weighted inverse operator
+    
     estimatedSourceSeriesW = np.dot(weighted_inv,sensorTimeSeries)     # Weighted  source time series
     
     # Change to amplitude 1, keep angle using Euler's formula.
-    estimatedSourceSeriesW = scipy.exp(1j*(scipy.asmatrix(scipy.angle(estimatedSourceSeriesW))))
-    reconstructedParcelTimeSeries = scipy.zeros([N_parcels,N_samples])
+    estimatedSourceSeriesW = np.exp(1j*(np.asmatrix(np.angle(estimatedSourceSeriesW))))
+    reconstructedParcelTimeSeries = np.zeros([N_parcels,N_samples], dtype=np.complex64)      ### Should this be complex? Now not. cpPLV assumes complex as it uses conjugate. So yes should be complex. Changed to complex.
     
     for i in range(N_parcels):
-        A = scipy.ravel(checkParcelTimeSeries[i,:])                                        # True simulated parcel time series
-        nSources = scipy.sum(sourceParcelMatrix[i,:])
-        B = scipy.ravel((sourceParcelMatrix[i,:]) * estimatedSourceSeriesW) /nSources      # Estimated      parcel time series
-        fidelity[i] = np.mean(A * scipy.conjugate(B))                                 # this = fidelity
+        A = np.ravel(checkParcelTimeSeries[i,:])                                        # True simulated parcel time series
+        nSources = np.sum(sourceParcelMatrix[i,:])
+        B = np.ravel((sourceParcelMatrix[i,:]) * estimatedSourceSeriesW) /nSources      # Estimated      parcel time series
+        fidelity[i] = np.real(np.mean(A * np.conjugate(B)))                             # this = fidelity
         reconstructedParcelTimeSeries[i] = B
         
     for t in range(N_samples):

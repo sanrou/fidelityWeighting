@@ -26,35 +26,44 @@ import os
 
 
 print('Loading sample data...')
-"""Settings."""
-inversion_method = 'dSPM'   # Options, MNE, dSPM, sLORETA, eLORETA
 
-"""Read forward and inverse operators from disk."""
+"""Settings."""
+subject = 'sample'
+parcellation = 'aparc.a2009s'
+inversion_method = 'dSPM'   # Options: MNE, dSPM, eLORETA. sLORETA is not well supported.
 fpath = sample.data_path()
 fpath_meg = os.path.join(fpath, 'MEG', 'sample')
+subjects_dir = os.path.join(fpath, 'subjects')
 
+
+"""Read forward and inverse operators from disk."""
 fname_forward = os.path.join(fpath_meg, 'sample_audvis-meg-oct-6-fwd.fif')
 fname_inverse = os.path.join(fpath_meg, 'sample_audvis-meg-oct-6-meg-inv.fif')
 
 fwd = read_forward_solution(fname_forward)
 inv = read_inverse_operator(fname_inverse)
 
-"""Force fixed source orientation mode."""  # Add option for free direction?
+"""Force fixed source orientation mode."""
 fwd_fixed = convert_forward_solution(fwd, force_fixed=True, use_cps=True)
 
 """Prepare the inverse operator for use."""  # Inverse loads with free orientation
 inv = prepare_inverse_operator(inv, 1, 1./9, inversion_method)
 
 """Read labels from FreeSurfer annotation files."""
-subject = 'sample'
-subjects_dir = os.path.join(fpath, 'subjects')
-parcellation = 'aparc.a2009s'
-
 labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
                                 parc=parcellation)
 
+"""
+Create weighted inverse operator.
+"""
+weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method=inversion_method)
+
+
+""" Above the weighted operator was created. 
+Below is visualization and simulation code."""
 
 print('Simulating data...')
+
 """Simulate source-space data and project it to the sensors."""
 fs = 1000
 times = np.arange(0, 300, dtype='float') / fs
@@ -75,17 +84,6 @@ evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
 ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                   if ch not in fwd['info']['bads']])
 
-weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method=inversion_method)     ### Error with MNE inversion method. Error cause fixed in fidelity.py (noise_norm).
-
-source_data = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
-                              labels, method=inversion_method, out_dim='source')
-
-parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
-                              labels, method=inversion_method, out_dim='parcel')
-
-n_sources = np.shape(source_data)[0]
-
-
 
 """Visualize dipole locations."""
 surf = 'inflated'
@@ -98,9 +96,19 @@ brain.add_foci(coords=simulated_stc.rh_vertno, coords_as_verts=True,
                 hemi='rh', map_surface=surf, color='red')
 brain.show_view('frontal')
 
-# TODO: this outputs some vtk error, not sure why. It seems to work anyway if one calls the script. Might be related to having no sources in left hemisphere if too few sources are created.
-
 input('Dipoles visualized. Left-hold-drag to rotate. Press enter here to continue.')
+
+
+source_data = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
+                              labels, method=inversion_method, out_dim='source')
+
+parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
+                              labels, method=inversion_method, out_dim='parcel')
+
+n_sources = np.shape(source_data)[0]
+
+
+
 print('Source level visualization. Close visualization windows to continue.')
 
 

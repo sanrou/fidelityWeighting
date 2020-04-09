@@ -20,7 +20,7 @@ from numpy.random import randn
 
 def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000):
     """Function for computing a fidelity-weighted inverse operator.
-       Called by weight_inverse_operator.
+       Note that only good channels are expected.
        
     Input arguments:
     ================
@@ -51,7 +51,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     time_cut = 20
 
     """Original values 1, 31. Higher number wider span."""
-    widths = scipy.arange(5, 6)
+    widths = np.arange(5, 6)
 
     """Make and clone parcel time series to source time series."""
     # np.random.seed(42) if seed == True else print('not seeded')   # Gives a type error for some reason, if there is seed=False in the definition.
@@ -107,21 +107,25 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
 
 
 def plv(x, y, source_identities):
-    """ Function for computing the complex phase-locking value."""
+    """ Function for computing the complex phase-locking value.
+    source_identities : ndarray [sources]
+        Expected ids for parcels are 0 to n-1, where n is number of parcels, 
+        and -1 for sources that do not belong to any parcel. 
+    """
     
     """Change to amplitude 1, keep angle using Euler's formula."""
-    x = scipy.exp(1j*(asmatrix(scipy.angle(x))))
-    y = scipy.exp(1j*(asmatrix(scipy.angle(y))))
+    x = np.exp(1j*(asmatrix(np.angle(x))))
+    y = np.exp(1j*(asmatrix(np.angle(y))))
 
     """Get cPLV needed for flips and weighting."""
-    cplv = scipy.zeros(len(source_identities), dtype='complex')
+    cplv = np.zeros(len(source_identities), dtype='complex')
 
     for i, identity in enumerate(source_identities):
         """Compute cPLV only of parcel source pairs of sources that
         belong to that parcel. One source belong to only one parcel."""
         if (source_identities[i] >= 0):
-            cplv[i] = (scipy.sum((scipy.asarray(y[identity])) *
-                       scipy.conjugate(scipy.asarray(x[i]))))
+            cplv[i] = (np.sum((np.asarray(y[identity])) *
+                       np.conjugate(np.asarray(x[i]))))
 
     cplv /= np.shape(x)[1]
     return cplv
@@ -130,25 +134,29 @@ def plv(x, y, source_identities):
 
 def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
     """Function for computing the weights of the weighted inverse operator.
+    source_identities : ndarray [sources]
+        Expected ids for parcels are 0 to n-1, where n is number of parcels, 
+        and -1 for sources that do not belong to any parcel. 
+    
     """
     
     cplv_array = plv(source_series, parcel_series, source_identities)
 
     """Get weights and flip. This could be the output."""
-    weights = scipy.sign(scipy.real(cplv_array)) * scipy.real(cplv_array) ** 2    
+    weights = np.sign(np.real(cplv_array)) * np.real(cplv_array) ** 2    
 
     """Create weighted inverse operator and normalize the norm of weighted inv op
     to match original inv op's norm."""
     """Multiply sensor dimension in inverseOperator by weight. This one would be
     the un-normalized operator."""
-    weighted_inv = scipy.einsum('ij,i->ij', inv_mat, weights)
+    weighted_inv = np.einsum('ij,i->ij', inv_mat, weights)
 
     id_set = set(source_identities)
     id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
     n_parcels = len(id_set)  # Number of unique IDs with ID >= 0
 
     """Initialize norm normalized weights. Maybe not necessary."""
-    weights_normalized = scipy.zeros(len(weights))
+    weights_normalized = np.zeros(len(weights))
     for parcel in range(n_parcels): # Normalize parcel level norms.
         # Index sources belonging to parcel
         ii = [i for i, source in enumerate(source_identities) if source == parcel]
@@ -158,13 +166,90 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
                                                 norm(weighted_inv[ii]))
 
     """Parcel level normalized operator."""
-    weighted_inv = scipy.einsum('ij,i->ij', inv_mat, weights_normalized)
+    weighted_inv = np.einsum('ij,i->ij', inv_mat, weights_normalized)
 
     """Operator level normalized operator. If there are sources not in any
     parcel weightedInvOp gets Nan values due to normalizations."""
-    weighted_inv *= norm(inv_mat) / norm(scipy.nan_to_num(weighted_inv))
-    weighted_inv = scipy.nan_to_num(weighted_inv)
+    weighted_inv *= norm(inv_mat) / norm(np.nan_to_num(weighted_inv))
+    weighted_inv = np.nan_to_num(weighted_inv)
 
     return weighted_inv, weights
 
+
+
+def fidelity_estimation(fwd, inv, source_identities, N_samples = 20000):
+    ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014)
+    Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
+    Fidelity estimation doesn't work properly.
+    
+    Input arguments: 
+    ================
+    fwd : Forward operator matrix, ndarray [sensors x sources]
+    inv : Inverse operator matrix, ndarray [sources x sensors]
+        Note that only good channels are expected in forward and inverse operators.
+    source_identities : ndarray [sources]
+        Expected ids for parcels are 0 to n-1, where n is number of parcels, 
+        and -1 for sources that do not belong to any parcel. 
+    N_samples: int
+        the number of samples used in the simulated data
+
+    method : str
+        The inversion method. Default 'dSPM'.
+        Other methods ('MNE', 'sLORETA', 'eLORETA') have not been tested.  
+        
+    Output arguments:
+    =================
+    fidelity : 1D array.
+        Fidelity values for each parcel.
+    cpPLV : 2D array
+        Cross-patch PLV of the reconstructed time series among all parcel pairs.    
+    '''
+    
+    timeCut = 20
+    
+    id_set = set(source_identities)
+    id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
+    N_parcels = len(id_set)  # Number of unique IDs >= 0
+
+    widths=np.arange(5, 6)
+    
+    ## Create oscillating signal per parcel
+    checkParcelTimeSeries = make_series(N_parcels, N_samples, timeCut, widths)
+    
+    # Change to amplitude 1, keep angle using Euler's formula.
+    checkParcelTimeSeries = np.exp(1j*(np.asmatrix(np.angle(checkParcelTimeSeries))))
+    
+    ## Clone parcel time series to source time series
+    checkSourceTimeSeries = checkParcelTimeSeries[source_identities]
+    
+    # Forward model source time series
+    sensorTimeSeries = np.dot(fwd,checkSourceTimeSeries)
+    
+    
+    # Binary matrix of sources belonging to parcels
+    sourceParcelMatrix = np.zeros((N_parcels,len(source_identities)), dtype=np.int8)
+    for i,identity in enumerate(source_identities):
+        if identity >= 0:     # Don't place negative values. These should be sources not belonging to any parcel.
+            sourceParcelMatrix[identity,i] = 1
+       
+    fidelity   = np.zeros(N_parcels, dtype=np.float32)  # For the weighted inverse operator
+    cpPLV      = np.zeros([N_samples, N_parcels, N_parcels], dtype=np.float32)  # For the weighted inverse operator
+    
+    estimatedSourceSeriesW = np.dot(inv,sensorTimeSeries)     # Estimated source series after forward and inverse.
+    
+    # Change to amplitude 1, keep angle using Euler's formula.
+    estimatedSourceSeriesW = np.exp(1j*(np.asmatrix(np.angle(estimatedSourceSeriesW))))
+    reconstructedParcelTimeSeries = np.zeros([N_parcels,N_samples], dtype=np.complex64)
+    
+    for i in range(N_parcels):
+        A = np.ravel(checkParcelTimeSeries[i,:])                                        # True simulated parcel time series. 
+        nSources = np.sum(sourceParcelMatrix[i,:])
+        B = np.ravel((sourceParcelMatrix[i,:]) * estimatedSourceSeriesW) /nSources      # Estimated      parcel time series. Does ravel hinder the average? Or maybe one should use each source separately.
+        fidelity[i] = np.real(np.mean(A * np.conjugate(B)))                             # this = fidelity
+        reconstructedParcelTimeSeries[i] = B
+        
+    for t in range(N_samples):
+        cpPLV[t] = np.abs(np.outer(reconstructedParcelTimeSeries[:,t],np.conjugate(reconstructedParcelTimeSeries[:,t])))
+    
+    return fidelity, np.mean(cpPLV,0)   
 
