@@ -125,7 +125,6 @@ stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
 
 
 ### testing code for parcellation visualization.
-## Need to do:
 # Assumes that there are 150 time samples. Take sample at 150 ms. Sort data to lh, then rh. Now interleaved. Drop medial wall ('unknown-lh' and 'unknown-rh').
 p_data_sorted = np.ravel(parcel_series[:,150])
 p_data_sorted = np.concatenate((p_data_sorted[0:-2:2], p_data_sorted[1:-2:2]))

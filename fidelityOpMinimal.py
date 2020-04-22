@@ -177,10 +177,10 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
 
 
 
-def fidelity_estimation(fwd, inv, source_identities, N_samples = 20000):
+
+def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000):
     ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014)
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
-    Fidelity estimation doesn't work properly.
     
     Input arguments: 
     ================
@@ -190,12 +190,9 @@ def fidelity_estimation(fwd, inv, source_identities, N_samples = 20000):
     source_identities : ndarray [sources]
         Expected ids for parcels are 0 to n-1, where n is number of parcels, 
         and -1 for sources that do not belong to any parcel. 
-    N_samples: int
-        the number of samples used in the simulated data
+    n_samples: int
+        the number of samples generated for simulated data
 
-    method : str
-        The inversion method. Default 'dSPM'.
-        Other methods ('MNE', 'sLORETA', 'eLORETA') have not been tested.  
         
     Output arguments:
     =================
@@ -213,43 +210,59 @@ def fidelity_estimation(fwd, inv, source_identities, N_samples = 20000):
 
     widths=np.arange(5, 6)
     
-    ## Create oscillating signal per parcel
-    checkParcelTimeSeries = make_series(N_parcels, N_samples, timeCut, widths)
-    
-    # Change to amplitude 1, keep angle using Euler's formula.
-    checkParcelTimeSeries = np.exp(1j*(np.asmatrix(np.angle(checkParcelTimeSeries))))
+    ## Create signal per parcel
+    origParcelSeries = np.real(make_series(N_parcels, n_samples, timeCut, widths))
     
     ## Clone parcel time series to source time series
-    checkSourceTimeSeries = checkParcelTimeSeries[source_identities]
+    cloneSourceTimeSeries = origParcelSeries[source_identities]
     
-    # Forward model source time series
-    sensorTimeSeries = np.dot(fwd,checkSourceTimeSeries)
+    # Forward and inverse model cloned source time series
+    estimatedSourceSeries = np.dot(inv, np.dot(fwd,cloneSourceTimeSeries))
     
-    
-    # Binary matrix of sources belonging to parcels
+    # Collapse estimated source series to parcel series
     sourceParcelMatrix = np.zeros((N_parcels,len(source_identities)), dtype=np.int8)
     for i,identity in enumerate(source_identities):
         if identity >= 0:     # Don't place negative values. These should be sources not belonging to any parcel.
             sourceParcelMatrix[identity,i] = 1
-       
-    fidelity   = np.zeros(N_parcels, dtype=np.float32)  # For the weighted inverse operator
-    cpPLV      = np.zeros([N_samples, N_parcels, N_parcels], dtype=np.float32)  # For the weighted inverse operator
     
-    estimatedSourceSeriesW = np.dot(inv,sensorTimeSeries)     # Estimated source series after forward and inverse.
+    estimatedParcelSeries = np.dot(sourceParcelMatrix, estimatedSourceSeries)
+    
+    # Filter time series with Mexican hat (Ricker). Hilbert transform.
+    for i in np.arange(0, N_parcels):
+        origParcelSeries[i, :] = signal.cwt(np.ravel(origParcelSeries[i, :]), 
+                                                 signal.ricker, widths)
+    origParcelSeries = signal.hilbert(origParcelSeries)
+
+    for i in np.arange(0, N_parcels):
+        estimatedParcelSeries[i, :] = signal.cwt(np.ravel(estimatedParcelSeries[i, :]), 
+                                                 signal.ricker, widths)
+    estimatedParcelSeries = signal.hilbert(estimatedParcelSeries)
+    
+    # Do the cross-patch PLV estimation before changing the amplitude to 1. 
+    cpPLV = np.zeros([N_parcels, N_parcels], dtype=np.complex128)
+    
+    for t in range(n_samples):
+        parcelPLVn = estimatedParcelSeries[:,t] / np.abs(estimatedParcelSeries[:,t]) 
+        cpPLV += np.outer(parcelPLVn, np.conjugate(parcelPLVn)) /n_samples
+    
+    cpPLV = np.abs(cpPLV)
     
     # Change to amplitude 1, keep angle using Euler's formula.
-    estimatedSourceSeriesW = np.exp(1j*(np.asmatrix(np.angle(estimatedSourceSeriesW))))
-    reconstructedParcelTimeSeries = np.zeros([N_parcels,N_samples], dtype=np.complex64)
+    origParcelSeries = np.exp(1j*(np.asmatrix(np.angle(origParcelSeries))))   
+    estimatedParcelSeries = np.exp(1j*(np.asmatrix(np.angle(estimatedParcelSeries))))
+    
+    # Estimate parcel fidelity.
+    fidelity   = np.zeros(N_parcels, dtype=np.float32)  # For the weighted inverse operator
     
     for i in range(N_parcels):
-        A = np.ravel(checkParcelTimeSeries[i,:])                                        # True simulated parcel time series. 
-        nSources = np.sum(sourceParcelMatrix[i,:])
-        B = np.ravel((sourceParcelMatrix[i,:]) * estimatedSourceSeriesW) /nSources      # Estimated      parcel time series. Does ravel hinder the average? Or maybe one should use each source separately.
-        fidelity[i] = np.real(np.mean(A * np.conjugate(B)))                             # this = fidelity
-        reconstructedParcelTimeSeries[i] = B
-        
-    for t in range(N_samples):
-        cpPLV[t] = np.abs(np.outer(reconstructedParcelTimeSeries[:,t],np.conjugate(reconstructedParcelTimeSeries[:,t])))
+        A = np.ravel(origParcelSeries[i,:])                        # True simulated parcel time series. 
+        B = np.ravel(estimatedParcelSeries[i,:])                       # Estimated parcel time series. Does ravel hinder the average? Or maybe one should use each source separately.
+        # nSources = np.sum(sourceParcelMatrix[i,:])
+        fidelity[i] = np.abs(np.mean(A * np.conjugate(B)))   # Maybe one should take np.abs() away. Though abs is the value you want.
     
-    return fidelity, np.mean(cpPLV,0)   
+    return fidelity, cpPLV
 
+
+       
+    
+    
