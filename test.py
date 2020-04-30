@@ -9,7 +9,9 @@ from the MNE-python web page.
 
 from __future__ import division
 
-from fidelity import apply_weighting_evoked, weight_inverse_operator
+from fidelity import (apply_weighting_evoked, weight_inverse_operator, 
+                      _extract_operator_data, fidelity_estimation,
+                      fidelity_estimation_matrix)
 
 from mne import (apply_forward, convert_forward_solution,
                  read_forward_solution, read_labels_from_annot,
@@ -22,14 +24,14 @@ from mne.simulation import simulate_sparse_stc
 import numpy as np
 from surfer import Brain
 import os
-
+import matplotlib.pyplot as plt
 
 
 print('Loading sample data...')
 
 """Settings."""
 subject = 'sample'
-parcellation = 'aparc.a2009s'
+parcellation = 'aparc'   # Options, aparc.a2009s, aparc. Note that Destrieux parcellation seems to already be optimized, so weighting has only a minor effect.
 inversion_method = 'dSPM'   # Options: MNE, dSPM, eLORETA. sLORETA is not well supported.
 fpath = sample.data_path()
 fpath_meg = os.path.join(fpath, 'MEG', 'sample')
@@ -59,8 +61,41 @@ Create weighted inverse operator.
 weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method=inversion_method)
 
 
-""" Above the weighted operator was created. 
-Below is visualization and simulation code."""
+"""   Analyze results   """
+""" Check if weighting worked. """
+source_identities, fwd_mat, inv_mat = _extract_operator_data(
+                            fwd_fixed, inv, labels, method=inversion_method)
+
+fidelity, cp_PLV = fidelity_estimation_matrix(fwd_mat, weighted_inv, source_identities)
+fidelityO, cp_PLVO = fidelity_estimation(fwd_fixed, inv, labels, method=inversion_method)
+
+
+
+
+""" Create plots. """
+fig, ax = plt.subplots()
+ax.plot(np.sort(fidelity), color='k', linestyle='--', label='Weighted fidelity, mean: ' + np.str(np.mean(fidelity)))
+ax.plot(np.sort(fidelityO), color='k', linestyle='-', label='Original fidelity, mean: ' + np.str(np.mean(fidelityO)))
+
+legend = ax.legend(loc='upper center', shadow=False, fontsize='12')
+legend.get_frame()
+
+ax.set_ylabel('Estimated fidelity', fontsize='12')
+ax.set_xlabel('Sorted parcels', fontsize='12')
+
+ax.spines['top'].set_visible(False)
+ax.spines['bottom'].set_visible(False)
+ax.spines['left'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+plt.show()
+
+
+
+
+
+
+"""Below is 3D visualization and simulation code."""
 
 print('Simulating data...')
 

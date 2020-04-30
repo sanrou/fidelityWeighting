@@ -203,6 +203,14 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
     
     # extract fwd and inv matrices
     fwd_mat          = fwd['sol']['data'] # sensors x sources
+
+    """If there are bad channels the corresponding rows can be missing
+    from the forward matrix. Not sure if the same can occur for the
+    inverse. This is not a problem if bad channels are interpolated."""   ### MOVED from weight_inverse_operator, just before """Compute the weighted operator."""
+    ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
+                      if ch not in fwd['info']['bads']])
+    fwd_mat = fwd_mat[ind, :]
+
     
     # noise_norm is used with dSPM and sLORETA. Other methods return null.
     if method != 'dSPM' or method != 'sLORETA':
@@ -267,10 +275,10 @@ def weight_inverse_operator(fwd, inv_prep, labels, method='dSPM'):
     Input arguments:
     ================
     fwd : ForwardOperator
-        The fixed_orientation forward operator. 
+        The fixed_orientation forward operator. Good channels expected.
         Instance of the MNE-Python ForwardOperator class.
     inv_prep : InverseOperator
-        The prepared inverse operator. 
+        The prepared inverse operator. Good channels expected.
         Instance of the MNE-Python InverseOperator class.
     labels : list
         List of labels belonging to the used parcellation. Each label must
@@ -288,13 +296,6 @@ def weight_inverse_operator(fwd, inv_prep, labels, method='dSPM'):
     
     source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, 
                                             inv_prep, labels, method = method)
-    
-    """If there are bad channels the corresponding rows can be missing
-    from the forward matrix. Not sure if the same can occur for the
-    inverse. This is not a problem if bad channels are interpolated."""
-    ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
-                      if ch not in fwd['info']['bads']])
-    fwd_mat = fwd_mat[ind, :]
     
     """Compute the weighted operator."""
     weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
@@ -376,14 +377,11 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
 
 
 
-### Log of fidelity_estimation
-    # Removed N_parcels input (computed inside from labels)
 
 
 
 
-
-def fidelity_estimation(fwd, inv_prep, weighted_inv, labels, method = 'dSPM', N_samples = 20000):
+def fidelity_estimation(fwd, inv_prep, labels, method = 'dSPM', n_samples = 20000):
     ''' Compute fidelity and cross-patch PLV (see Korhonen et al 2014)
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
@@ -393,20 +391,17 @@ def fidelity_estimation(fwd, inv_prep, weighted_inv, labels, method = 'dSPM', N_
         The fixed_orientation forward operator. 
         Instance of the MNE-Python Forward class.
     inv_prep : InverseOperator
-        The prepared inverse operator. Instance of the MNE-Python
+        The prepared inverse operator. Instance of the MNE-Python.
         InverseOperator class.
-    weighted_inv : ndarray [n_sources, n_sensors]
-        The fidelity-weighted inverse operator.  
     labels: list of labels/parcels
         List of labels or parcels belonging to the used parcellation. Each
         item must be an instance of the MNE-Python Label class.
         It is recommended to delete 'trash' labels/parcels (unknown or medial wall)!
-    N_samples: int
+    n_samples: int
         the number of samples in the simulated data
 
     method : str
-        The inversion method. Default 'dSPM'.
-        Other methods ('MNE', 'sLORETA', 'eLORETA') have not been tested.  
+        The inversion method. Default 'dSPM'. 'MNE' works fine, 'eLORETA' unoptimally.
         
     Output arguments:
     =================
@@ -416,27 +411,58 @@ def fidelity_estimation(fwd, inv_prep, weighted_inv, labels, method = 'dSPM', N_
         Cross-patch PLV of the reconstructed time series among all parcel pairs.    
     '''
     
+    
     source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = method)
+    
+    fidelity, cpPLV = fidelity_estimation_matrix(fwd_mat, inv_mat, source_identities, n_samples=n_samples)
+
+    return fidelity, cpPLV
+
+
+
+
+
+def fidelity_estimation_matrix(fwd, inv, source_identities, n_samples = 20000):
+    ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014)
+    Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
+    
+    Input arguments: 
+    ================
+    fwd : Forward operator matrix, ndarray [sensors x sources]
+    inv : Inverse operator matrix, ndarray [sources x sensors]
+        Note that only good channels are expected in forward and inverse operators.
+    source_identities : ndarray [sources]
+        Expected ids for parcels are 0 to n-1, where n is number of parcels, 
+        and -1 for sources that do not belong to any parcel. 
+    n_samples: int
+        the number of samples generated for simulated data
+
+        
+    Output arguments:
+    =================
+    fidelity : 1D array.
+        Fidelity values for each parcel.
+    cpPLV : 2D array
+        Cross-patch PLV of the reconstructed time series among all parcel pairs.    
+    '''
+    
     timeCut = 20
     
-    N_parcels = len(labels)
-    
-    # Use only good channels.  ### TODO: check if this works if bad channels have already been purged.
-    ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
-                  if ch not in fwd['info']['bads']])
-    fwd_mat = fwd_mat[ind, :]
-    
+    id_set = set(source_identities)
+    id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
+    N_parcels = len(id_set)  # Number of unique IDs >= 0
+
     widths=np.arange(5, 6)
     
-    ## Create  signal per parcel
-    origParcelTimeSeries = make_series(N_parcels, N_samples, timeCut, widths)
+    ## Create signal per parcel
+    origParcelSeries = np.real(make_series(N_parcels, n_samples, timeCut, widths))
     
     ## Clone parcel time series to source time series
     cloneSourceTimeSeries = origParcelSeries[source_identities]
     
     # Forward and inverse model cloned source time series
     estimatedSourceSeries = np.dot(inv, np.dot(fwd,cloneSourceTimeSeries))
-
+    
     # Collapse estimated source series to parcel series
     sourceParcelMatrix = np.zeros((N_parcels,len(source_identities)), dtype=np.int8)
     for i,identity in enumerate(source_identities):
@@ -473,10 +499,9 @@ def fidelity_estimation(fwd, inv_prep, weighted_inv, labels, method = 'dSPM', N_
     fidelity   = np.zeros(N_parcels, dtype=np.float32)  # For the weighted inverse operator
     
     for i in range(N_parcels):
-        A = np.ravel(origParcelSeries[i,:])             
-        B = np.ravel(estimatedParcelSeries[i,:])        
-        fidelity[i] = np.abs(np.mean(A * np.conjugate(B)))
+        A = np.ravel(origParcelSeries[i,:])                        # True simulated parcel time series. 
+        B = np.ravel(estimatedParcelSeries[i,:])                       # Estimated parcel time series. Does ravel hinder the average? Or maybe one should use each source separately.
+        # nSources = np.sum(sourceParcelMatrix[i,:])
+        fidelity[i] = np.abs(np.mean(A * np.conjugate(B)))   # Maybe one should take np.abs() away. Though abs is the value you want.
     
     return fidelity, cpPLV
-
-

@@ -20,18 +20,16 @@ import numpy as np
 dataPath = 'K:\\palva\\fidelityWeighting\\example data\\s11'
 
 fileSourceIdentities = os.path.join(dataPath, 'sourceIdentities.csv')
-fileForwardOperator  = os.path.join(dataPath, 'forwardSolution.csv')
-fileInverseOperator  = os.path.join(dataPath, 'inverseSolution.csv')
-# fileInverseOperatorW  = os.path.join(dataPath, 'inverseSolutionLVWeighted.csv')     ### TEMP
+fileForwardOperator  = os.path.join(dataPath, 'forwardOperator.csv')
+fileInverseOperator  = os.path.join(dataPath, 'inverseOperator.csv')
 
+delimiter = ','
 identities = np.genfromtxt(fileSourceIdentities, 
-                                    dtype='int32', delimiter=',')         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+                                    dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
 forward = np.matrix(np.genfromtxt(fileForwardOperator, 
-                                    dtype='float', delimiter=','))        # sensors x sources
+                                    dtype='float', delimiter=delimiter))        # sensors x sources
 inverse = np.matrix(np.genfromtxt(fileInverseOperator, 
-                                    dtype='float', delimiter=','))        # sources x sensors
-# inverseLV = np.matrix(np.genfromtxt(fileInverseOperatorW, 
-#                                     dtype='float', delimiter=';'))        ### sources x sensors. TEMP.
+                                    dtype='float', delimiter=delimiter))        # sources x sensors
 
 
 """ Generate signals for parcels. """
@@ -62,8 +60,6 @@ inverse_w, weights = _compute_weights(sourceSeries, parcelSeries, identities, in
 """ Check if weighting worked. """
 fidelity, cp_PLV = fidelity_estimation(forward, inverse_w, identities)
 fidelityO, cp_PLVO = fidelity_estimation(forward, inverse, identities)
-# fidelityLV, cp_PLVLV = fidelity_estimation(forward, inverseLV, identities)    ### TEMP
-
 
 """ Create plots. """
 fig, ax = plt.subplots()
