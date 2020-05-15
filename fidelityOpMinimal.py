@@ -12,9 +12,11 @@ from __future__ import division
 
 import scipy
 from scipy import asmatrix, signal
+from scipy.ndimage.interpolation import shift
 import numpy as np
 from numpy.linalg import norm
 from numpy.random import randn
+from random import shuffle
 
 
 
@@ -71,7 +73,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
 
 
 
-def make_series(n_parcels, n_samples, n_cut_samples, widths):
+def make_series(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)):
     """Function for generating oscillating parcel signals.
     
     Input arguments:
@@ -178,7 +180,7 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
 
 
 
-def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000):
+def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_series=[]):
     ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014)
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
@@ -192,6 +194,9 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000):
         and -1 for sources that do not belong to any parcel. 
     n_samples: int
         the number of samples generated for simulated data
+    parcel_series : ndarray, complex [parcels x samples]
+        If empty, time series will be generated. Else given series is used.
+        Overrides n_samples if given.
 
         
     Output arguments:
@@ -203,15 +208,23 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000):
     '''
     
     timeCut = 20
+    widths=np.arange(5, 6)
     
     id_set = set(source_identities)
     id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
     N_parcels = len(id_set)  # Number of unique IDs >= 0
 
-    widths=np.arange(5, 6)
+    if parcel_series.size == 0:
+        generateSeries = True
+    else:
+        generateSeries = False
     
-    ## Create signal per parcel
-    origParcelSeries = np.real(make_series(N_parcels, n_samples, timeCut, widths))
+    ## Check if source time series is empty. If empty, create time series.
+    if generateSeries == True:
+        origParcelSeries = make_series(N_parcels, n_samples, timeCut, widths)  ### origParcelSeries = np.real(make_series(N_parcels, n_samples, timeCut, widths))
+    else:
+        origParcelSeries = parcel_series
+        n_samples = parcel_series.shape[1]
     
     ## Clone parcel time series to source time series
     cloneSourceTimeSeries = origParcelSeries[source_identities]
@@ -227,16 +240,18 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000):
     
     estimatedParcelSeries = np.dot(sourceParcelMatrix, estimatedSourceSeries)
     
-    # Filter time series with Mexican hat (Ricker). Hilbert transform.
-    for i in np.arange(0, N_parcels):
-        origParcelSeries[i, :] = signal.cwt(np.ravel(origParcelSeries[i, :]), 
-                                                 signal.ricker, widths)
-    origParcelSeries = signal.hilbert(origParcelSeries)
+    # If generating signal, filter time series with Mexican hat (Ricker).
+    if generateSeries == True:
+        for i in np.arange(0, N_parcels):
+            origParcelSeries[i, :] = signal.cwt(np.ravel(origParcelSeries[i, :]), 
+                                                  signal.ricker, widths)
 
-    for i in np.arange(0, N_parcels):
-        estimatedParcelSeries[i, :] = signal.cwt(np.ravel(estimatedParcelSeries[i, :]), 
-                                                 signal.ricker, widths)
-    estimatedParcelSeries = signal.hilbert(estimatedParcelSeries)
+        for i in np.arange(0, N_parcels):
+            estimatedParcelSeries[i, :] = signal.cwt(np.ravel(estimatedParcelSeries[i, :]), 
+                                                      signal.ricker, widths)
+    
+        origParcelSeries = signal.hilbert(origParcelSeries)
+        estimatedParcelSeries = signal.hilbert(estimatedParcelSeries)
     
     # Do the cross-patch PLV estimation before changing the amplitude to 1. 
     cpPLV = np.zeros([N_parcels, N_parcels], dtype=np.complex128)
@@ -245,7 +260,7 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000):
         parcelPLVn = estimatedParcelSeries[:,t] / np.abs(estimatedParcelSeries[:,t]) 
         cpPLV += np.outer(parcelPLVn, np.conjugate(parcelPLVn)) /n_samples
     
-    cpPLV = np.abs(cpPLV)
+    # cpPLV = np.abs(cpPLV)  ### TEMP Removed absolute value out.
     
     # Change to amplitude 1, keep angle using Euler's formula.
     origParcelSeries = np.exp(1j*(np.asmatrix(np.angle(origParcelSeries))))   
@@ -263,6 +278,61 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000):
     return fidelity, cpPLV
 
 
-       
+
+def make_series_with_time_shift(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6), time_shift=3):
+    """Function for generating oscillating parcel signals.
     
+    Input arguments:
+    ================
+    n_parcels : int
+        Number of source-space parcels or labels.
+    n_samples : int
+        Length of the generated time-series in number of samples.
+    n_cut_samples : int
+        Number of temporary extra samples at each end of the signal
+        for handling edge artefacts.
+    widths : ndarray
+        Widths to use for the wavelet transform.
+    time_shift : int
+        Shift in samples.
+        
+    Output arguments:
+    =================
+    s : ndarray, complex
+        Simulated oscillating parcel time-series. 
+        Half are time shifted copies of the first half.
+        Each parcel has degree of one.
+    pairs : ndarray
+        Parcel edge pairs.
+    """
     
+    decim_factor = 5
+    n_parcels_half = np.int(n_parcels/2)
+    time_shift = (0, time_shift)  # Do not shift across parcels, only time.
+    
+    pairs = list(range(0, n_parcels))
+    shuffle(pairs)
+    pairs = np.reshape(pairs, (n_parcels_half, 2))
+    
+    # Do signals for half of the parcels. Time shift the other half from the first half.
+    s = randn(n_parcels_half, n_samples*decim_factor+2*n_cut_samples)
+    
+    for i in np.arange(0, n_parcels_half):
+        s[i, :] = signal.cwt(s[i, :], signal.ricker, widths)
+        
+    s_shift = shift(s, time_shift, mode='wrap')
+    s = signal.hilbert(s)
+    s_shift = signal.hilbert(s_shift)
+    s = s[:, n_cut_samples:-n_cut_samples]
+    s_shift = s_shift[:, n_cut_samples:-n_cut_samples]
+    ### TODO: check if amplitude randomization does anything. This is added for s_shifted in LV code. One could use shuffle on the amplitude and keep phase.
+    # Decimate the signals separately.
+    s = scipy.signal.decimate(s, decim_factor, axis=1)
+    s_shift = scipy.signal.decimate(s_shift, decim_factor, axis=1)
+    
+    # Slice the generated signals to correct indices.
+    s_comb = np.zeros((n_parcels, n_samples), dtype=complex)
+    s_comb[pairs[:,0],:] = s
+    s_comb[pairs[:,1],:] = s_shift
+    return s_comb, pairs
+
