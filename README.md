@@ -1,15 +1,22 @@
+README
+
 # Fidelity-weighting
 
-This is a repository for computing fidelity-weighted inverse operators to be
-used with cortical parcellations (see e.g. [1–3]) in neurophysiological 
-research.
+This is a repository for computing fidelity-weighted inverse operators 
+with Python 3 to be used with cortical parcellations (see e.g. [1–3]) 
+in neurophysiological research. 
+Fidelity: how well simulated source activity is replicated after
+forward then inverse modeling the source activity.
 
 ## Dependencies
 
-- MNE-Python https://martinos.org/mne/stable/index.html
+For the minimal version:
 - NumPy
-- PySurfer https://pysurfer.github.io/
 - SciPy
+
+MNE-Python is also supported, and requires:
+- MNE-Python https://martinos.org/mne/stable/index.html.
+- PySurfer https://pysurfer.github.io/
 
 # References
 
