@@ -180,7 +180,7 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
 
 
 
-def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_series=np.asarray([]):
+def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_series=np.asarray([])):
     ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014)
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
@@ -239,19 +239,6 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_s
             sourceParcelMatrix[identity,i] = 1
     
     estimatedParcelSeries = np.dot(sourceParcelMatrix, estimatedSourceSeries)
-    
-    # If generating signal, filter time series with Mexican hat (Ricker).
-    if generateSeries == True:
-        for i in np.arange(0, N_parcels):
-            origParcelSeries[i, :] = signal.cwt(np.ravel(origParcelSeries[i, :]), 
-                                                  signal.ricker, widths)
-
-        for i in np.arange(0, N_parcels):
-            estimatedParcelSeries[i, :] = signal.cwt(np.ravel(estimatedParcelSeries[i, :]), 
-                                                      signal.ricker, widths)
-    
-        origParcelSeries = signal.hilbert(origParcelSeries)
-        estimatedParcelSeries = signal.hilbert(estimatedParcelSeries)
     
     # Do the cross-patch PLV estimation before changing the amplitude to 1. 
     cpPLV = np.zeros([N_parcels, N_parcels], dtype=np.complex128)
