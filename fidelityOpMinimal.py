@@ -180,7 +180,7 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
 
 
 
-def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_series=[]):
+def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_series=np.asarray([]):
     ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014)
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
