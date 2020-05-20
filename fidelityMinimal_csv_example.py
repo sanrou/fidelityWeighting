@@ -11,7 +11,7 @@ No MNE-Python required.
 """
 
 from fidelityOpMinimal import (make_series, _compute_weights, fidelity_estimation,
-                               make_series_with_time_shift)
+                               make_series_paired)
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -85,13 +85,13 @@ plt.show()
 
 """ Do network estimation. Code work in progress. """
 
-parcelSeriesPairs, pairs = make_series_with_time_shift(n_parcels, n_samples)
+parcelSeriesPairs, pairs = make_series_paired(n_parcels, n_samples)
 
 """ Compute cross-patch PLV values of paired data. """
 pim, cp_PLVP = fidelity_estimation(forward, inverse_w, identities, parcel_series=parcelSeriesPairs)
 pim, cp_PLVPO = fidelity_estimation(forward, inverse, identities, parcel_series=parcelSeriesPairs)
 
-# Do the cross-patch PLV estimation for unmodeled series
+# Do the cross-patch PLV estimation for unmodeled series unpaired data. Ground truth.
 cp_PLVU = np.zeros([n_parcels, n_parcels], dtype=np.complex128)
 
 for t in range(n_samples):
@@ -99,71 +99,92 @@ for t in range(n_samples):
     cp_PLVU += np.outer(parcelPLVn, np.conjugate(parcelPLVn)) /n_samples
 
 
-# Get truth matrix from the unmodeled series.
+# Get truth matrix from the unforward-inverse modeled paired series.
 cp_PLVUim = np.abs(np.imag(cp_PLVU))
 truthMatrix = cp_PLVUim > 0.5
 
 # Delete diagonal from truth and estimated matrices
-truthMatrix = truthMatrix[~np.eye(truthMatrix.shape[0],dtype=bool)].reshape(
-                                                truthMatrix.shape[0],-1)
-cp_PLVP = cp_PLVP[~np.eye(cp_PLVP.shape[0],dtype=bool)].reshape(
-                                                cp_PLVP.shape[0],-1)
+def delete_diagonal(symm_matrix):
+    symm_matrix = symm_matrix[~np.eye(symm_matrix.shape[0],dtype=bool)].reshape(
+                                                symm_matrix.shape[0],-1)
+    return symm_matrix
+
+truthMatrix = delete_diagonal(truthMatrix)
+cp_PLVP = delete_diagonal(cp_PLVP)
+cp_PLVU = delete_diagonal(cp_PLVU)
+cp_PLVPO = delete_diagonal(cp_PLVPO)
+
+
+
 
 # Use imaginary PLV for the estimation.
 cp_PLVPim = np.abs(np.imag(cp_PLVP))
+cp_PLVPOim = np.abs(np.imag(cp_PLVPO))
 
 ## True positive and false positive rate estimation.
-# Set thresholds from the data. Get as many thresholds as number of parcels.
-maxVal = np.max(cp_PLVPim)
-thresholds = np.sort(np.ravel(cp_PLVPim))
-thresholds = thresholds[0:-1:n_parcels]
-thresholds = np.append(thresholds, maxVal)
 
 # Get true positive and false positive rates across thresholds. 
-tpRate = np.zeros(len(thresholds), dtype=float)
-fpRate = np.zeros(len(thresholds), dtype=float)
+def get_tp_fp_rates(cp_PLV, truth_matrix):
+    # Set thresholds from the data. Get as many thresholds as number of parcels.
+    maxVal = np.max(cp_PLVPim)
+    thresholds = np.sort(np.ravel(cp_PLVPim))
+    thresholds = thresholds[0:-1:int(n_parcels/2)]
+    thresholds = np.append(thresholds, maxVal)
 
-for i, threshold in enumerate(thresholds):
-    estTrueMat = cp_PLVPim > threshold
-    tPos = np.sum(estTrueMat * truthMatrix)
-    fPos = np.sum(estTrueMat * np.logical_not(truthMatrix))
-    tNeg = np.sum(np.logical_not(estTrueMat) * np.logical_not(truthMatrix))
-    fNeg = np.sum(truthMatrix) - tPos
-    
-    tpRate[i] = tPos / (tPos + fNeg)
-    fpRate[i] = fPos / (fPos + tNeg)
+    tpRate = np.zeros(len(thresholds), dtype=float)
+    fpRate = np.zeros(len(thresholds), dtype=float)
+
+    for i, threshold in enumerate(thresholds):
+        estTrueMat = cp_PLV > threshold
+        tPos = np.sum(estTrueMat * truthMatrix)
+        fPos = np.sum(estTrueMat * np.logical_not(truthMatrix))
+        tNeg = np.sum(np.logical_not(estTrueMat) * np.logical_not(truthMatrix))
+        fNeg = np.sum(truthMatrix) - tPos
+        
+        tpRate[i] = tPos / (tPos + fNeg)
+        fpRate[i] = fPos / (fPos + tNeg)
+    return tpRate, fpRate
+
+tpRateW, fpRateW = get_tp_fp_rates(cp_PLVPim, truthMatrix)
+tpRateO, fpRateO = get_tp_fp_rates(cp_PLVPOim, truthMatrix)
+
+def find_nearest_index(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
+
+fig, ax = plt.subplots()
+ax.plot(fpRateW, tpRateW, color='k', linestyle='--', label='Weighted, TPR at FPR 0.15: '
+        + np.str(tpRateW[find_nearest_index(fpRateW, 0.15)]))
+ax.plot(fpRateO, tpRateO, color='k', linestyle='-', label='Original, TPR at FPR 0.15: ' 
+        + np.str(tpRateO[find_nearest_index(fpRateO, 0.15)]))
+
+legend = ax.legend(loc='upper center', shadow=False, fontsize='12')
+legend.get_frame()
+
+ax.set_ylabel('True positive rate', fontsize='12')
+ax.set_xlabel('False positive rate', fontsize='12')
+
+ax.spines['top'].set_visible(False)
+ax.spines['bottom'].set_visible(False)
+ax.spines['left'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+plt.show()
 
 
-plt.plot(fpRate, tpRate)
 
-
-""" Pseudocode """
-### Do the estimation separately with normal inverse operator, and weighted one.
-## Inputs are n_iterations, parcellation/source_identities, forward and inverse.
-
-
-
-## Create "bins" for X-Axis.
+## Create "bins" for X-Axis. Get nearest TP values closest to the FP pair at the "bin" values.
 n_bins = 101
-binArray = np.linspace(0, 1, n_bins, endpoint=True)
+binArray = np.logspace(-2, 0, n_bins, endpoint=True)    # Values from 0.01 to 1
 
+def get_nearest_tp_semi_bin(binArray, tpRate, fpRate):
+    nearestTP = np.zeros(len(binArray))
+    for i, fpval in enumerate(binArray):
+        index = find_nearest_index(fpRate, fpval)
+        nearestTP[i] = tpRate[index]
+    return nearestTP
 
-### Create cp-PLV matrix. One without forward-inverse (true or in values). One values with modeling (estimation values)
-## Output is n_parcels x n_parcels (N x N). Values is cPLV. Extract iPLV by default.
-# Truth matrix from very high threshold (0.5 iPLV). 
-# 
+nearestValues = get_nearest_tp_semi_bin(binArray, tpRateW, fpRateW)
 
-
-### Threshold estimation (p-value)
-## Estimate threshold from uncorrelated Real values. Like top 5 % thresholded from non-diagonal values. The threshold will be changed.
-# Threshold 1 - p-value of non-diagonal values. This will be the threshold for the simulated matrix values with degree one.
-
-## Define get ROC.
-# Input is binary truth array (N x N) and iPLV modeled array (N x N).
-# Output is ROC curve.
-# TP and FP rates estimated at different thresholds. 
-
-
-## Cross-Patch PLV (original)
-# For each sample, take np.dot(patchSeries, )
 

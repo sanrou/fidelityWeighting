@@ -266,8 +266,9 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_s
 
 
 
-def make_series_with_time_shift(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6), time_shift=3):
-    """Function for generating oscillating parcel signals.
+def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6), time_shift=3):
+    """Function for generating oscillating parcel signals with each parcel with
+    degree of one.
     
     Input arguments:
     ================
@@ -279,13 +280,13 @@ def make_series_with_time_shift(n_parcels, n_samples, n_cut_samples=40, widths=r
         Number of temporary extra samples at each end of the signal
         for handling edge artefacts.
     widths : ndarray
-        Widths to use for the wavelet transform.
+        Width to use for the wavelet transform.
     time_shift : int
         Shift in samples.
         
     Output arguments:
     =================
-    s : ndarray, complex
+    s_comb : ndarray, complex
         Simulated oscillating parcel time-series. 
         Half are time shifted copies of the first half.
         Each parcel has degree of one.
