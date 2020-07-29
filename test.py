@@ -11,7 +11,7 @@ from __future__ import division
 
 from fidelity import (apply_weighting_evoked, weight_inverse_operator, 
                       _extract_operator_data, fidelity_estimation,
-                      fidelity_estimation_matrix)
+                      fidelity_estimation_matrix, collapse_operator)
 
 from mne import (apply_forward, convert_forward_solution,
                  read_forward_solution, read_labels_from_annot,
@@ -31,7 +31,7 @@ print('Loading sample data...')
 
 """Settings."""
 subject = 'sample'
-parcellation = 'aparc'   # Options, aparc.a2009s, aparc. Note that Destrieux parcellation seems to already be optimized, so weighting has only a minor effect.
+parcellation = 'aparc'   # Options: aparc.a2009s, aparc. Note that Destrieux parcellation seems to already be optimized/flipped, so weighting has only a minor effect.
 inversion_method = 'dSPM'   # Options: MNE, dSPM, eLORETA. sLORETA is not well supported.
 fpath = sample.data_path()
 fpath_meg = os.path.join(fpath, 'MEG', 'sample')
@@ -59,7 +59,6 @@ labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
 Create weighted inverse operator.
 """
 weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method=inversion_method)
-
 
 """   Analyze results   """
 """ Check if weighting worked. """
@@ -95,7 +94,7 @@ plt.show()
 
 
 
-"""Below is 3D visualization and simulation code."""
+"""   3D visualization and simulation code.   """
 
 print('Simulating data...')
 
@@ -115,9 +114,6 @@ simulated_stc = simulate_sparse_stc(fwd['src'], n_dipoles=2, times=times,
 evoked = apply_forward(fwd=fwd_fixed, stc=simulated_stc,
                        info=fwd_fixed['info'], use_cps=True, verbose=True)
 
-"""Apply weighting. Use good channels."""
-ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
-                  if ch not in fwd['info']['bads']])
 
 
 """Visualize dipole locations."""
@@ -133,11 +129,13 @@ brain.show_view('frontal')
 
 input('Dipoles visualized. Left-hold-drag to rotate. Press enter here to continue.')
 
-
+""" Model source and parcel level activity. """
 source_data = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
                               labels, method=inversion_method, out_dim='source')
 
-parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
+"""Collapse weighted operator."""
+col_w_inv = collapse_operator(weighted_inv, source_identities)
+parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, col_w_inv,
                               labels, method=inversion_method, out_dim='parcel')
 
 n_sources = np.shape(source_data)[0]
@@ -147,7 +145,7 @@ n_sources = np.shape(source_data)[0]
 print('Source level visualization. Close visualization windows to continue.')
 
 
-"""Visualize the inverse modeled data."""   # Parcel space data visualization would be more interesting.
+"""Visualize the inverse modeled data.""" 
 vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
 
 stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0, tstep=0.001) # weighted
@@ -298,7 +296,7 @@ labels_sorted = []
 for label in np.concatenate((labels[0:-2:2], labels[1:-2:2])):
     labels_sorted.append(label.name)
 
-# Plot closes down when the program is called in Anaconda prompt for some reason. Works fine when called directly in editor.
+# Plot closes immediately when the program is called in Anaconda prompt for some reason. Works fine when called directly in editor.
 plot_4_view(p_data_sorted,labels_sorted,parcellation,
                 style='linear',alpha=0.95,
                 zmin=None,zmax=None,zmid=None,cmap='auto',show=True,

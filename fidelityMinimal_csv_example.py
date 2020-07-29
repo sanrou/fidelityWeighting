@@ -11,7 +11,7 @@ No MNE-Python required.
 """
 
 from fidelityOpMinimal import (make_series, _compute_weights, fidelity_estimation,
-                               make_series_paired)
+                               make_series_paired, collapse_operator)
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -52,9 +52,9 @@ sourceSeries[identities < 0] = 0
 """ Forward then inverse model source series. """
 sourceSeries = np.dot(inverse, np.dot(forward, sourceSeries))
 
-""" Compute weighted inverse operator. """
+""" Compute weighted inverse operator. Use collapsed_inv_w for your inversing."""
 inverse_w, weights = _compute_weights(sourceSeries, parcelSeries, identities, inverse)
-
+collapsed_inv_w = collapse_operator(inverse_w, identities)
 
 
 """   Analyze results   """
@@ -85,13 +85,12 @@ plt.show()
 
 """ Do network estimation. Code work in progress. """
 
-parcelSeriesPairs, pairs = make_series_paired(n_parcels, n_samples)
-
 """ Compute cross-patch PLV values of paired data. """
-pim, cp_PLVP = fidelity_estimation(forward, inverse_w, identities, parcel_series=parcelSeriesPairs)
-pim, cp_PLVPO = fidelity_estimation(forward, inverse, identities, parcel_series=parcelSeriesPairs)
+parcelSeriesPairs, pairs = make_series_paired(n_parcels, n_samples)
+_, cp_PLVP = fidelity_estimation(forward, inverse_w, identities, parcel_series=parcelSeriesPairs)
+_, cp_PLVPO = fidelity_estimation(forward, inverse, identities, parcel_series=parcelSeriesPairs)
 
-# Do the cross-patch PLV estimation for unmodeled series unpaired data. Ground truth.
+# Do the cross-patch PLV estimation for unmodeled series unpaired data. Baseline.
 cp_PLVU = np.zeros([n_parcels, n_parcels], dtype=np.complex128)
 
 for t in range(n_samples):
@@ -115,14 +114,11 @@ cp_PLVU = delete_diagonal(cp_PLVU)
 cp_PLVPO = delete_diagonal(cp_PLVPO)
 
 
-
-
 # Use imaginary PLV for the estimation.
 cp_PLVPim = np.abs(np.imag(cp_PLVP))
 cp_PLVPOim = np.abs(np.imag(cp_PLVPO))
 
 ## True positive and false positive rate estimation.
-
 # Get true positive and false positive rates across thresholds. 
 def get_tp_fp_rates(cp_PLV, truth_matrix):
     # Set thresholds from the data. Get as many thresholds as number of parcels.
@@ -159,7 +155,7 @@ ax.plot(fpRateW, tpRateW, color='k', linestyle='--', label='Weighted, TPR at FPR
 ax.plot(fpRateO, tpRateO, color='k', linestyle='-', label='Original, TPR at FPR 0.15: ' 
         + np.str(tpRateO[find_nearest_index(fpRateO, 0.15)]))
 
-legend = ax.legend(loc='upper center', shadow=False, fontsize='12')
+legend = ax.legend(loc='right', shadow=False, fontsize='12')
 legend.get_frame()
 
 ax.set_ylabel('True positive rate', fontsize='12')

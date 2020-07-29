@@ -214,14 +214,9 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_s
     id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
     N_parcels = len(id_set)  # Number of unique IDs >= 0
 
-    if parcel_series.size == 0:
-        generateSeries = True
-    else:
-        generateSeries = False
-    
     ## Check if source time series is empty. If empty, create time series.
-    if generateSeries == True:
-        origParcelSeries = make_series(N_parcels, n_samples, timeCut, widths)  ### origParcelSeries = np.real(make_series(N_parcels, n_samples, timeCut, widths))
+    if parcel_series.size == 0:
+        origParcelSeries = make_series(N_parcels, n_samples, timeCut, widths)
     else:
         origParcelSeries = parcel_series
         n_samples = parcel_series.shape[1]
@@ -258,8 +253,7 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_s
     
     for i in range(N_parcels):
         A = np.ravel(origParcelSeries[i,:])                        # True simulated parcel time series. 
-        B = np.ravel(estimatedParcelSeries[i,:])                       # Estimated parcel time series. Does ravel hinder the average? Or maybe one should use each source separately.
-        # nSources = np.sum(sourceParcelMatrix[i,:])
+        B = np.ravel(estimatedParcelSeries[i,:])                       # Estimated parcel time series. 
         fidelity[i] = np.abs(np.mean(A * np.conjugate(B)))   # Maybe one should take np.abs() away. Though abs is the value you want.
     
     return fidelity, cpPLV
@@ -324,3 +318,40 @@ def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)
     s_comb[pairs[:,1],:] = s_shift
     return s_comb, pairs
 
+
+
+def collapse_operator(operator, identities, op_type='inverse'):
+    """Function for collapsing operators from source space to parcel space.
+    
+    Input
+    ----------
+    operator : ndarray, 2D
+        Forward or inverse operator. In source space.
+    identities : ndarray, 1D [sources]
+        Expected ids for parcels are 0 to n-1, where n is number of parcels, 
+        and -1 for sources that do not belong to any parcel.
+    op_type : str
+        Operator type defines which dimension will be collapsed 
+        ('inverse' = [sources x sensors], 'forward' = [sensors x sources]).
+
+    Output
+    -------
+    collapsed_operator : ndarray, 2D.
+
+    """
+    idSet = set(identities)                         # Get unique IDs
+    idSet = [item for item in idSet if item >= 0]   # Remove negative values (should have only -1 if any)
+    n_parcels = len(idSet)
+
+    # Make collapse matrix (parcels x sources)
+    sourceParcelMatrix = np.zeros((n_parcels,len(identities)), dtype=np.int8)
+    for i,identity in enumerate(identities):
+        if identity >= 0:     # Don't place negative values. These should be sources not belonging to any parcel.
+            sourceParcelMatrix[identity,i] = 1
+    
+    if op_type == 'forward':
+        collapsed_operator = np.dot(operator, sourceParcelMatrix.T)
+    else:
+        collapsed_operator = np.dot(sourceParcelMatrix, operator)
+    
+    return collapsed_operator

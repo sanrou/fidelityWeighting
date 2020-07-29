@@ -320,8 +320,8 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
     inv_prep : InverseOperator
         The prepared inverse operator. Instance of the MNE-Python
         InverseOperator class.                                                                  
-    weighted_inv : ndarray [n_sources, n_sensors]
-        The fidelity-weighted inverse operator.
+    weighted_inv : ndarray [n_sources/n_parcels, n_sensors]
+        The fidelity-weighted inverse operator. Can be a collapsed operator.
     labels: list of labels/parcels
         List of labels or parcels belonging to the used parcellation. Each
         item must be an instance of the MNE-Python Label class.
@@ -345,31 +345,37 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
         stop = len(evoked._data[0])
         
     
-    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, inv_prep, labels, method = method)
+    source_identities, fwd_mat, inv_mat = _extract_operator_data(
+                                        fwd, inv_prep, labels, method = method)
     
     """If there are bad channels the corresponding rows can be missing
     from the forward matrix. Not sure if the same can occur for the
     inverse."""
     ind = np.asarray([i for i, ch in enumerate(fwd['info']['ch_names'])
                       if ch not in fwd['info']['bads']])
-    fwd_mat = fwd_mat[ind, :]
-    
-    estimated_sources = np.dot(weighted_inv, evoked._data[ind, start : stop])
+    # fwd_mat = fwd_mat[ind, :]     # Not called.
     
     if out_dim == 'parcel':
-        """Build matrix mapping sources to parcels."""
-        n_parcels = np.max(source_identities) + 1
-        source_to_parcel_map = np.zeros((n_parcels, len(source_identities)),
-                                            dtype=np.int8)
-        for i, identity in enumerate(source_identities):
-            if (identity >= 0):
-                source_to_parcel_map[identity, i] = 1
-    
-        """Collapse data to parcels."""
-        parcel_series = np.dot(source_to_parcel_map, estimated_sources)
-        time_series = parcel_series
+        n_parcels = len(labels)
+        
+        if n_parcels == weighted_inv.shape[0]:      # If inverse operator is already in parcel space. 
+            time_series = np.dot(weighted_inv, evoked._data[ind, start : stop])
+
+        else:       # Inverse operator in source space.
+            """Build matrix mapping sources to parcels."""
+            source_to_parcel_map = np.zeros((n_parcels, len(source_identities)),
+                                                dtype=np.int8)
+            for i, identity in enumerate(source_identities):
+                if (identity >= 0):
+                    source_to_parcel_map[identity, i] = 1
+        
+            """Collapse data to parcels."""
+            collapsed_inv = np.dot(source_to_parcel_map, weighted_inv)
+            time_series = np.dot(collapsed_inv, evoked._data[ind, start : stop])
+            # parcel_series = np.dot(source_to_parcel_map, estimated_sources)
+            # time_series = parcel_series
     else:
-        time_series = estimated_sources
+        time_series = np.dot(weighted_inv, evoked._data[ind, start : stop])     # Source space output
     
     return time_series
 
@@ -382,7 +388,7 @@ def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0,
 
 
 def fidelity_estimation(fwd, inv_prep, labels, method = 'dSPM', n_samples = 20000):
-    ''' Compute fidelity and cross-patch PLV (see Korhonen et al 2014)
+    ''' Compute fidelity and cross-patch PLV (see Korhonen et al 2014) MNE-Python input.
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
     Input arguments: 
@@ -423,7 +429,7 @@ def fidelity_estimation(fwd, inv_prep, labels, method = 'dSPM', n_samples = 2000
 
 
 def fidelity_estimation_matrix(fwd, inv, source_identities, n_samples = 20000):
-    ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014)
+    ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014) matrix input.
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
     Input arguments: 
@@ -501,7 +507,44 @@ def fidelity_estimation_matrix(fwd, inv, source_identities, n_samples = 20000):
     for i in range(N_parcels):
         A = np.ravel(origParcelSeries[i,:])                        # True simulated parcel time series. 
         B = np.ravel(estimatedParcelSeries[i,:])                       # Estimated parcel time series. Does ravel hinder the average? Or maybe one should use each source separately.
-        # nSources = np.sum(sourceParcelMatrix[i,:])
         fidelity[i] = np.abs(np.mean(A * np.conjugate(B)))   # Maybe one should take np.abs() away. Though abs is the value you want.
     
     return fidelity, cpPLV
+
+
+
+def collapse_operator(operator, identities, op_type='inverse'):
+    """Function for collapsing operators from source space to parcel space.
+    
+    Input
+    ----------
+    operator : ndarray, 2D
+        Forward or inverse operator matrix. In source space.
+    identities : ndarray, 1D [sources]
+        Expected ids for parcels are 0 to n-1, where n is number of parcels, 
+        and -1 for sources that do not belong to any parcel.
+    op_type : str
+        Operator type defines which dimension will be collapsed 
+        ('inverse' = [sources x sensors], 'forward' = [sensors x sources]).
+
+    Output
+    -------
+    collapsed_operator : ndarray, 2D.
+
+    """
+    idSet = set(identities)                         # Get unique IDs
+    idSet = [item for item in idSet if item >= 0]   # Remove negative values (should have only -1 if any)
+    n_parcels = len(idSet)
+
+    # Make collapse matrix (parcels x sources)
+    sourceParcelMatrix = np.zeros((n_parcels,len(identities)), dtype=np.int8)
+    for i,identity in enumerate(identities):
+        if identity >= 0:     # Don't place negative values. These should be sources not belonging to any parcel.
+            sourceParcelMatrix[identity,i] = 1
+    
+    if op_type == 'forward':
+        collapsed_operator = np.dot(operator, sourceParcelMatrix.T)
+    else:
+        collapsed_operator = np.dot(sourceParcelMatrix, operator)
+    
+    return collapsed_operator
