@@ -6,25 +6,21 @@ Script for doing group level analysis of fidelity and true/false positive rates.
 @author: rouhinen
 """
 
-
-"""Pseudocode for TP / FP ROC code"""
-
 # from __future__ import division
 
 import numpy as np
 import os
+import glob
 import matplotlib.pyplot as plt
 
-from fidelityOpMinimal import (make_series, _compute_weights, fidelity_estimation, 
-                               make_series_paired)
+from fidelityOpMinimal import fidelity_estimation, make_series_paired
 
 
 
-### Set subjects and directories
 """Load source identities, forward and inverse operators from csv. """
-subjectsPath = 'K:\\palva\\fidelityWeighting\\csvSubjects\\'
+subjectsPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p_megOnly\\'
 
-sourceIdFileName = 'sourceIdentities_200.csv'
+sourceIdPattern = '\\*200AFS.csv'
 delimiter = ';'
 n_samples = 10000
 n_cut_samples = 40
@@ -82,10 +78,11 @@ binArray = np.concatenate(([0], binArray))  # Add 0 to beginning
 
 ## Get subjects list, and first subject's number of parcels.
 subjects = next(os.walk(subjectsPath))[1]
-subject = subjects[1]
-fileSourceIdentities = os.path.join(subjectsPath, subject, sourceIdFileName)
-identities = np.genfromtxt(fileSourceIdentities, 
-                                    dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+subjectFolder = os.path.join(subjectsPath, subjects[0])
+sourceIdFile = glob.glob(subjectFolder + sourceIdPattern)[0]
+
+# fileSourceIdentities = os.path.join(subjectsPath, subject, sourceIdPattern)
+identities = np.genfromtxt(sourceIdFile, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
 
 idSet = set(identities)                         # Get unique IDs
 idSet = [item for item in idSet if item >= 0]   # Remove negative values (should have only -1 if any)
@@ -97,14 +94,15 @@ fidOArray = np.zeros((len(subjects), n_parcels), dtype=float)
 tpWArray = np.zeros((len(subjects), n_bins), dtype=float)
 tpOArray = np.zeros((len(subjects), n_bins), dtype=float)
 
-### Loop over subjects
-## Load files
-# Without loop for now
+### Loop over subjects. Insert values to subject x parcels/bins arrays.
 for run_i, subject in enumerate(subjects):
 
-    fileSourceIdentities = os.path.join(subjectsPath, subject, sourceIdFileName)
-    fileForwardOperator  = os.path.join(subjectsPath, subject, 'forwardOperator.csv')
-    fileInverseOperator  = os.path.join(subjectsPath, subject, 'inverseOperator.csv')
+    ## Load files
+    subjectFolder = os.path.join(subjectsPath, subject)
+    fileSourceIdentities = glob.glob(subjectFolder + sourceIdPattern)[0]
+    fileForwardOperator  = glob.glob(subjectFolder + '\\*forward*.csv')[0]
+    fileInverseOperator  = glob.glob(subjectFolder + '\\*inverse*.csv')[0]
+    fileWeightedOperator  = glob.glob(subjectFolder + '\\*weighted_inv*.csv')[0]
     
     identities = np.genfromtxt(fileSourceIdentities, 
                                         dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
@@ -112,38 +110,27 @@ for run_i, subject in enumerate(subjects):
                                         dtype='float', delimiter=delimiter))        # sensors x sources
     inverse = np.matrix(np.genfromtxt(fileInverseOperator, 
                                         dtype='float', delimiter=delimiter))        # sources x sensors
-    
-    # Create weighted operator
-    """ Generate signals for parcels. """
+    inverse_w = np.matrix(np.genfromtxt(fileWeightedOperator, 
+                                        dtype='float', delimiter=delimiter))        # sources x sensors
     
     if run_i == 0:
         prior_n_parcels = n_parcels
     else:
         if prior_n_parcels == n_parcels:
-            print('Done with subject number ' + str(run_i))
+            print('Running subject ' + subject)
         else:
             print('Mismatch in number of parcels between subjects!')
     
-    
-    parcelSeries = make_series(n_parcels, n_samples, n_cut_samples, widths)
-    
-    """ Parcel series to source series. 0 signal for sources not belonging to a parcel. """
-    sourceSeries = parcelSeries[identities]
-    sourceSeries[identities < 0] = 0
-    
-    """ Forward then inverse model source series. """
-    sourceSeries = np.dot(inverse, np.dot(forward, sourceSeries))
-    
-    """ Compute weighted inverse operator. Get fidelities from unpaired data. """
-    inverse_w, weights = _compute_weights(sourceSeries, parcelSeries, identities, inverse)
-    fidelityW, pim = fidelity_estimation(forward, inverse_w, identities)
-    fidelityO, pim = fidelity_estimation(forward, inverse, identities)
+    """ Get fidelities from unpaired data. """
+    # inverse_w, _ = _compute_weights(sourceSeries, parcelSeries, identities, inverse)
+    fidelityW, _ = fidelity_estimation(forward, inverse_w, identities)
+    fidelityO, _ = fidelity_estimation(forward, inverse, identities)
     
     
     """ Do network estimation. Get cross-patch PLV values from paired data"""
     parcelSeriesPairs, pairs = make_series_paired(n_parcels, n_samples)
-    pim, cp_PLVP = fidelity_estimation(forward, inverse_w, identities, parcel_series=parcelSeriesPairs)
-    pim, cp_PLVPO = fidelity_estimation(forward, inverse, identities, parcel_series=parcelSeriesPairs)
+    _, cp_PLVP = fidelity_estimation(forward, inverse_w, identities, parcel_series=parcelSeriesPairs)
+    _, cp_PLVPO = fidelity_estimation(forward, inverse, identities, parcel_series=parcelSeriesPairs)
     
     # Do the cross-patch PLV estimation for unmodeled series
     cp_PLVU = np.zeros([n_parcels, n_parcels], dtype=np.complex128)
@@ -161,7 +148,6 @@ for run_i, subject in enumerate(subjects):
     truthMatrix = delete_diagonal(truthMatrix)
     cp_PLVP = delete_diagonal(cp_PLVP)
     cp_PLVPO = delete_diagonal(cp_PLVPO)
-    # cp_PLVU = delete_diagonal(cp_PLVU)
     
     # Use imaginary PLV for the estimation.
     cp_PLVPim = np.abs(np.imag(cp_PLVP))
@@ -179,28 +165,52 @@ for run_i, subject in enumerate(subjects):
     fidOArray[run_i,:] = fidelityO
     tpWArray[run_i,:] = nearTPW
     tpOArray[run_i,:] = nearTPO
+    
+    # One might want to save number of sources also. Head size seems to correlate with fidelity pretty strongly.
 
-
-
-### Out of for loop. 
+### Statistics. 
 
 fidWAverage = np.average(fidWArray, axis=0)
+fidWStd = np.std(fidWArray, axis=0)
 fidOAverage = np.average(fidOArray, axis=0)
+fidOStd = np.std(fidOArray, axis=0)
 tpWAverage = np.average(tpWArray, axis=0)
+tpWStd = np.std(tpWArray, axis=0)
 tpOAverage = np.average(tpOArray, axis=0)
+tpOStd = np.std(tpOArray, axis=0)
 
 
 
-""" Plot fidelities. """
-fig, ax = plt.subplots()
-ax.plot(np.sort(fidWAverage), color='k', linestyle='--', label='Weighted fidelity, mean: ' + np.str(np.mean(fidWAverage)))
-ax.plot(np.sort(fidOAverage), color='k', linestyle='-', label='Original fidelity, mean: ' + np.str(np.mean(fidOAverage)))
 
-legend = ax.legend(loc='upper center', shadow=False, fontsize='12')
+""" Plot Fidelities. """
+import pandas as pd
+
+parcelList = list(range(0, n_parcels))
+
+# Sort according to original fidelity
+sorting = np.argsort(fidOAverage)
+
+meansWF = pd.DataFrame(fidWAverage[sorting])
+stdsWF = pd.DataFrame(fidWStd[sorting])
+meansOF = pd.DataFrame(fidOAverage[sorting])
+stdsOF = pd.DataFrame(fidOStd[sorting])
+
+fig, ax = plt.subplots(1,1)
+
+# Weighted
+ax.plot(meansWF, color='black', linestyle='-', 
+        label='Weighted fidelity, mean: ' + "{:.3f}".format(np.mean(fidWAverage)))
+# Original
+ax.plot(meansOF, color='black', linestyle='--', 
+        label='Original fidelity, mean: ' + "{:.3f}".format(np.mean(fidOAverage)))
+
+legend = ax.legend(loc='best', shadow=False, fontsize='12')
 legend.get_frame()
 
-ax.set_ylabel('Estimated fidelity', fontsize='12')
-ax.set_xlabel('Sorted parcels', fontsize='12')
+ax.fill_between(parcelList, np.ravel(meansWF-stdsWF), np.ravel(meansWF+stdsWF), color='black', alpha=0.5)
+ax.fill_between(parcelList, np.ravel(meansOF-stdsOF), np.ravel(meansOF+stdsOF), color='black', alpha=0.3)
+ax.set_ylabel('Fidelity', fontsize='12')
+ax.set_xlabel('Parcels, sorted by original', fontsize='12')
 
 ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
@@ -210,18 +220,28 @@ ax.spines['right'].set_visible(False)
 plt.show()
 
 
+""" Plot ROC, True positives, false positives. """
+meansW = pd.DataFrame(np.array([binArray, tpWAverage]).T,columns=['time','mean'])
+stdsW = pd.DataFrame(tpWStd)
+meansO = pd.DataFrame(np.array([binArray, tpOAverage]).T,columns=['time','mean'])
+stdsO = pd.DataFrame(tpOStd)
 
+fig, ax = plt.subplots(1,1)
 
-""" Plot ROC. """
-fig, ax = plt.subplots()
-ax.plot(binArray, tpWAverage, color='k', linestyle='--', label='Weighted, TPR at FPR 0.15: '
-        + np.str(tpWAverage[find_nearest_index(binArray, 0.15)]))
-ax.plot(binArray, tpOAverage, color='k', linestyle='-', label='Original, TPR at FPR 0.15: '
-        + np.str(tpOAverage[find_nearest_index(binArray, 0.15)]))
+# Weighted
+ax.plot(meansW.iloc[:,0], meansW.iloc[:,1], color='black', linestyle='-', 
+        label='Weighted, TPR at FPR 0.15: ' 
+        + "{:.3f}".format(tpWAverage[find_nearest_index(binArray, 0.15)]))
+# Original
+ax.plot(meansO.iloc[:,0], meansO.iloc[:,1], color='black', linestyle='--', 
+        label='Original, TPR at FPR 0.15: ' 
+        + "{:.3f}".format(tpOAverage[find_nearest_index(binArray, 0.15)]))
 
-legend = ax.legend(loc='upper center', shadow=False, fontsize='12')
+legend = ax.legend(loc='right', shadow=False, fontsize='12')
 legend.get_frame()
 
+ax.fill_between(meansW.iloc[:,0], meansW.iloc[:,1]-stdsW.iloc[:,0], meansW.iloc[:,1]+stdsW.iloc[:,0], color='black', alpha=0.5)
+ax.fill_between(meansO.iloc[:,0], meansO.iloc[:,1]-stdsO.iloc[:,0], meansO.iloc[:,1]+stdsO.iloc[:,0], color='black', alpha=0.3)
 ax.set_ylabel('True positive rate', fontsize='12')
 ax.set_xlabel('False positive rate', fontsize='12')
 
@@ -233,13 +253,39 @@ ax.spines['right'].set_visible(False)
 plt.show()
 
 
-## Get ROC and fidelity
-# Unweighted and weighted ROC and fidelity
-# Output unsorted fidelities, so that one can get population values at anatomical space.
 
 
-### Analyze group values
-## ROC
-# Use fixed false positive values, get nearest true positive values.
-## Fidelities
-# Get difference values of unweighted and weighted fidelities. Maybe weighted-original fidelity would be good, as very small fidelities could give huge ratio improvements that are not meaningful.
+""" Make and plot relative benefits from weighting. """
+fidRelative = fidWArray / fidOArray
+meansR = np.average(fidRelative, axis=0)
+stdsR = np.std(fidRelative, axis=0)
+
+# Sort parcels by average, and multiply by 100 to change to percentage.
+sortArray = np.argsort(meansR)
+meansR = 100* meansR[sortArray] 
+stdsR = 100* stdsR[sortArray]
+
+fig, ax = plt.subplots(1,1)
+
+ax.plot(meansR, color='black', linestyle='-', 
+        label='Relative fidelity, mean: ' + "{:.3f}".format(np.mean(meansR)))
+ax.plot(100*np.ones(n_parcels, dtype=float), color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %.
+
+legend = ax.legend(loc='best', shadow=False, fontsize='12')
+legend.get_frame()
+
+ax.fill_between(parcelList, np.ravel(meansR-stdsR), np.ravel(meansR+stdsR), color='black', alpha=0.5)
+ax.set_ylabel('Relative fidelity (+-SD)', fontsize='12')
+ax.set_xlabel('Parcels, sorted by relative benefit', fontsize='12')
+
+
+ax.spines['top'].set_visible(False)
+ax.spines['bottom'].set_visible(False)
+ax.spines['left'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+plt.show()
+plt.ylim(0, 300)
+
+
+

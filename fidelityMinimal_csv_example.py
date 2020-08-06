@@ -10,19 +10,19 @@ No MNE-Python required.
 @author: rouhinen
 """
 
-from fidelityOpMinimal import (make_series, _compute_weights, fidelity_estimation,
+from fidelityOpMinimal import (compute_weighted_operator, fidelity_estimation,
                                make_series_paired, collapse_operator)
-import os
+import glob
 import matplotlib.pyplot as plt
 import numpy as np
 
 
 """Load source identities, forward and inverse operators from csv. """
-dataPath = 'K:\\palva\\fidelityWeighting\\example data\\s11'
+dataPath = 'K:\\palva\\fidelityWeighting\\example data\\S11'
 
-fileSourceIdentities = os.path.join(dataPath, 'sourceIdentities_200.csv')
-fileForwardOperator  = os.path.join(dataPath, 'forwardOperator.csv')
-fileInverseOperator  = os.path.join(dataPath, 'inverseOperator.csv')
+fileSourceIdentities = glob.glob(dataPath + '\\*_200.csv')[0]
+fileForwardOperator  = glob.glob(dataPath + '\\*forwardOperator.csv')[0]
+fileInverseOperator  = glob.glob(dataPath + '\\*inverseOperator.csv')[0]
 
 delimiter = ';'
 identities = np.genfromtxt(fileSourceIdentities, 
@@ -32,29 +32,16 @@ forward = np.matrix(np.genfromtxt(fileForwardOperator,
 inverse = np.matrix(np.genfromtxt(fileInverseOperator, 
                                     dtype='float', delimiter=delimiter))        # sources x sensors
 
+n_samples = 10000
 
-""" Generate signals for parcels. """
+""" Get number of parcels. """
 idSet = set(identities)                         # Get unique IDs
 idSet = [item for item in idSet if item >= 0]   # Remove negative values (should have only -1 if any)
 n_parcels = len(idSet)
 
-n_samples = 10000
-n_cut_samples = 40
-widths = np.arange(5, 6)
-
-parcelSeries = make_series(n_parcels, n_samples, n_cut_samples, widths)
-
-""" Parcel series to source series. 0 signal for sources not belonging to a parcel. """
-sourceSeries = parcelSeries[identities]
-
-sourceSeries[identities < 0] = 0
-
-""" Forward then inverse model source series. """
-sourceSeries = np.dot(inverse, np.dot(forward, sourceSeries))
-
 """ Compute weighted inverse operator. Use collapsed_inv_w for your inversing."""
-inverse_w, weights = _compute_weights(sourceSeries, parcelSeries, identities, inverse)
-collapsed_inv_w = collapse_operator(inverse_w, identities)
+inverse_w, weights = compute_weighted_operator(forward, inverse, identities, n_samples=n_samples)
+collapsed_inv_w = collapse_operator(inverse_w, identities) 
 
 
 """   Analyze results   """
@@ -81,9 +68,6 @@ ax.spines['right'].set_visible(False)
 plt.show()
 
 
-
-
-""" Do network estimation. Code work in progress. """
 
 """ Compute cross-patch PLV values of paired data. """
 parcelSeriesPairs, pairs = make_series_paired(n_parcels, n_samples)
@@ -167,20 +151,5 @@ ax.spines['left'].set_visible(False)
 ax.spines['right'].set_visible(False)
 
 plt.show()
-
-
-
-## Create "bins" for X-Axis. Get nearest TP values closest to the FP pair at the "bin" values.
-n_bins = 101
-binArray = np.logspace(-2, 0, n_bins, endpoint=True)    # Values from 0.01 to 1
-
-def get_nearest_tp_semi_bin(binArray, tpRate, fpRate):
-    nearestTP = np.zeros(len(binArray))
-    for i, fpval in enumerate(binArray):
-        index = find_nearest_index(fpRate, fpval)
-        nearestTP[i] = tpRate[index]
-    return nearestTP
-
-nearestValues = get_nearest_tp_semi_bin(binArray, tpRateW, fpRateW)
 
 

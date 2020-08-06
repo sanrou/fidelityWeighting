@@ -68,7 +68,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     """Compute weights."""
     weighted_inv, weights = _compute_weights(source_series, parcel_series,
                                      source_identities, inv_mat)
-    return weighted_inv
+    return weighted_inv, weights
 
 
 
@@ -355,3 +355,4 @@ def collapse_operator(operator, identities, op_type='inverse'):
         collapsed_operator = np.dot(sourceParcelMatrix, operator)
     
     return collapsed_operator
+
