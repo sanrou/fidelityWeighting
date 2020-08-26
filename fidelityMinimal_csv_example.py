@@ -18,11 +18,11 @@ import numpy as np
 
 
 """Load source identities, forward and inverse operators from csv. """
-dataPath = 'K:\\palva\\fidelityWeighting\\example data\\S11'
+dataPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\sub (3)'
 
-fileSourceIdentities = glob.glob(dataPath + '\\*_200.csv')[0]
-fileForwardOperator  = glob.glob(dataPath + '\\*forwardOperator.csv')[0]
-fileInverseOperator  = glob.glob(dataPath + '\\*inverseOperator.csv')[0]
+fileSourceIdentities = glob.glob(dataPath + '\\*parc2009_200.csv')[0]
+fileForwardOperator  = glob.glob(dataPath + '\\*forwardOperatorMEEG.csv')[0]
+fileInverseOperator  = glob.glob(dataPath + '\\*inverseOperatorMEEG.csv')[0]
 
 delimiter = ';'
 identities = np.genfromtxt(fileSourceIdentities, 

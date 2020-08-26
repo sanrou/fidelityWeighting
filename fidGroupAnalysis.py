@@ -18,9 +18,9 @@ from fidelityOpMinimal import fidelity_estimation, make_series_paired
 
 
 """Load source identities, forward and inverse operators from csv. """
-subjectsPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p_megOnly\\'
+subjectsPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\'
 
-sourceIdPattern = '\\*200AFS.csv'
+sourceIdPattern = '\\*parc2009_200AFS.csv'
 delimiter = ';'
 n_samples = 10000
 n_cut_samples = 40
@@ -93,6 +93,7 @@ fidWArray = np.zeros((len(subjects), n_parcels), dtype=float)
 fidOArray = np.zeros((len(subjects), n_parcels), dtype=float)
 tpWArray = np.zeros((len(subjects), n_bins), dtype=float)
 tpOArray = np.zeros((len(subjects), n_bins), dtype=float)
+sizeArray = []
 
 ### Loop over subjects. Insert values to subject x parcels/bins arrays.
 for run_i, subject in enumerate(subjects):
@@ -100,9 +101,9 @@ for run_i, subject in enumerate(subjects):
     ## Load files
     subjectFolder = os.path.join(subjectsPath, subject)
     fileSourceIdentities = glob.glob(subjectFolder + sourceIdPattern)[0]
-    fileForwardOperator  = glob.glob(subjectFolder + '\\*forward*.csv')[0]
-    fileInverseOperator  = glob.glob(subjectFolder + '\\*inverse*.csv')[0]
-    fileWeightedOperator  = glob.glob(subjectFolder + '\\*weighted_inv*.csv')[0]
+    fileForwardOperator  = glob.glob(subjectFolder + '\\*forward*MEEG.csv')[0]
+    fileInverseOperator  = glob.glob(subjectFolder + '\\*inverse*MEEG.csv')[0]
+    fileWeightedOperator  = glob.glob(subjectFolder + '\\*weighted*MEEG*_200AFS.csv')[0]
     
     identities = np.genfromtxt(fileSourceIdentities, 
                                         dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
@@ -165,8 +166,8 @@ for run_i, subject in enumerate(subjects):
     fidOArray[run_i,:] = fidelityO
     tpWArray[run_i,:] = nearTPW
     tpOArray[run_i,:] = nearTPO
+    sizeArray.append(len(identities))   # Approximate head size with number of sources.
     
-    # One might want to save number of sources also. Head size seems to correlate with fidelity pretty strongly.
 
 ### Statistics. 
 
@@ -255,7 +256,7 @@ plt.show()
 
 
 
-""" Make and plot relative benefits from weighting. """
+""" Make and plot relative benefits from weighting to fidelity. """
 fidRelative = fidWArray / fidOArray
 meansR = np.average(fidRelative, axis=0)
 stdsR = np.std(fidRelative, axis=0)
@@ -289,3 +290,32 @@ plt.ylim(0, 300)
 
 
 
+""" Plot relative ROC gain, True positives/True positives by false positives bins. """
+# Skip first and last bin because division by zero
+meansRR = pd.DataFrame(np.array([binArray[1:-1], tpWAverage[1:-1] / tpOAverage[1:-1]]).T,
+                       columns=['FP bins','TP-relative'])
+stdsRR = pd.DataFrame(np.array([binArray[1:-1], tpWStd[1:-1] / tpOStd[1:-1]]).T,
+                       columns=['FP bins','TP-relative'])
+
+fig, ax = plt.subplots(1,1)
+
+ax.plot(meansRR.iloc[:,0], meansRR.iloc[:,1], color='black', linestyle='-', 
+        label='Relative TPR at FPR 0.15: ' 
+        + "{:.3f}".format(meansRR.iloc[:,1][find_nearest_index(binArray[1:-1], 0.15)]))
+# ax.plot(np.ones(len(binArray[1:-1]), dtype=float), color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %.
+ax.plot([0, 1], [1, 1], color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %.
+
+legend = ax.legend(loc='best', shadow=False, fontsize='12')
+legend.get_frame()
+
+ax.fill_between(meansRR.iloc[:,0], meansRR.iloc[:,1]-stdsRR.iloc[:,0],
+                meansRR.iloc[:,1]+stdsRR.iloc[:,0], color='black', alpha=0.5)
+ax.set_ylabel('Relative true positive rate', fontsize='12')
+ax.set_xlabel('False positive rate', fontsize='12')
+
+ax.spines['top'].set_visible(False)
+ax.spines['bottom'].set_visible(False)
+ax.spines['left'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+plt.show()

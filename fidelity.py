@@ -94,11 +94,10 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
     
     id_set = set(source_identities)
     id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
-    n_parcels = len(id_set)  # Number of unique IDs with ID >= 0
     
-    """Initialize norm normalized weights. Maybe not necessary."""
+    """Initialize norm normalized weights. Maybe normalization not necessary."""
     weights_normalized = np.zeros(len(weights))
-    for parcel in range(n_parcels): # Normalize parcel level norms.
+    for index, parcel in enumerate(id_set): # Normalize parcel level norms.
         # Index sources belonging to parcel
         ii = [i for i, source in enumerate(source_identities) if source == parcel]
         
@@ -223,7 +222,7 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
 
 def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000):
     """Function for computing a fidelity-weighted inverse operator.
-       Called by weight_inverse_operator.
+       Called by weight_inverse_operator. Parcel level flips are applied.
        
     Input arguments:
     ================
@@ -261,16 +260,36 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     source_series_orig[source_identities < 0] = 0
     
     """Forward then inverse model source series."""
-    source_series = np.dot(inv_mat,(np.dot(fwd_mat ,source_series_orig)))
+    source_series = np.dot(inv_mat,(np.dot(fwd_mat, source_series_orig)))
     
     """Compute weights."""
     weighted_inv, weights = _compute_weights(source_series, parcel_series,
                                      source_identities, inv_mat)
+    
+    """ Perform parcel flips (multiply by 1 or -1) depending on inverse forward operation result. 
+    This is to make evoked responses of neighbouring parcels match in direction. """
+    sensor_orig = np.ones((fwd_mat.shape[0], 1))
+    inversed = np.dot(weighted_inv, sensor_orig)
+    
+    for index, parcel in enumerate(id_set): 
+    # for parcel in range(source_identities): 
+        # Index sources (not) belonging to the parcel
+        ni = [i for i, source in enumerate(source_identities) if source != parcel]
+        ii = [i for i, source in enumerate(source_identities) if source == parcel]
+        
+        # Forward model parcel's sources using bulk simulated "series". Flip whole parcels.
+        fwd_par = 1*fwd_mat
+        fwd_par[:,ni] = 0
+        sensor_mod = np.dot(fwd_par, inversed)
+        parcel_flip = np.sign(sum(sensor_mod))[0]
+        weighted_inv[ii,:] *= parcel_flip
+        weights[ii] *= parcel_flip
+    
     return weighted_inv
 
 
 
-def weight_inverse_operator(fwd, inv_prep, labels, method='dSPM'):
+def weight_inverse_operator(fwd_fixed, inv_prep, labels, method='dSPM'):
     """Compute fidelity-weighted inverse operator.
     Input arguments:
     ================
@@ -294,7 +313,7 @@ def weight_inverse_operator(fwd, inv_prep, labels, method='dSPM'):
     weighted_inv : ndarray
     """
     
-    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd, 
+    source_identities, fwd_mat, inv_mat = _extract_operator_data(fwd_fixed, 
                                             inv_prep, labels, method = method)
     
     """Compute the weighted operator."""
@@ -495,7 +514,7 @@ def fidelity_estimation_matrix(fwd, inv, source_identities, n_samples = 20000):
         parcelPLVn = estimatedParcelSeries[:,t] / np.abs(estimatedParcelSeries[:,t]) 
         cpPLV += np.outer(parcelPLVn, np.conjugate(parcelPLVn)) /n_samples
     
-    cpPLV = np.abs(cpPLV)
+    # cpPLV = np.abs(cpPLV)    # Maybe one should keep np.abs().
     
     # Change to amplitude 1, keep angle using Euler's formula.
     origParcelSeries = np.exp(1j*(np.asmatrix(np.angle(origParcelSeries))))   
@@ -507,7 +526,7 @@ def fidelity_estimation_matrix(fwd, inv, source_identities, n_samples = 20000):
     for i in range(N_parcels):
         A = np.ravel(origParcelSeries[i,:])                        # True simulated parcel time series. 
         B = np.ravel(estimatedParcelSeries[i,:])                       # Estimated parcel time series. Does ravel hinder the average? Or maybe one should use each source separately.
-        fidelity[i] = np.abs(np.mean(A * np.conjugate(B)))   # Maybe one should take np.abs() away. Though abs is the value you want.
+        fidelity[i] = np.abs(np.mean(A * np.conjugate(B)))   
     
     return fidelity, cpPLV
 

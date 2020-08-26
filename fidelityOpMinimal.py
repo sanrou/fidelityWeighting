@@ -22,7 +22,7 @@ from random import shuffle
 
 def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000):
     """Function for computing a fidelity-weighted inverse operator.
-       Note that only good channels are expected.
+       Note that only good channels are expected. Parcel level flips are applied.
        
     Input arguments:
     ================
@@ -41,8 +41,6 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     weighted_inv : ndarray
         The fidelity-weighted inverse operator.
     """
-
-    """Generate oscillatory parcel signals."""
         
     """Get number of parcels."""
     id_set = set(source_identities)
@@ -55,9 +53,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     """Original values 1, 31. Higher number wider span."""
     widths = np.arange(5, 6)
 
-    """Make and clone parcel time series to source time series."""
-    # np.random.seed(42) if seed == True else print('not seeded')   # Gives a type error for some reason, if there is seed=False in the definition.
-    
+    """Generate oscillatory parcel signals."""
     parcel_series = make_series(n_parcels, n_samples, time_cut, widths)
     source_series_orig = parcel_series[source_identities]
     source_series_orig[source_identities < 0] = 0
@@ -65,9 +61,28 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     """Forward then inverse model source series."""
     source_series = np.dot(inv_mat,(np.dot(fwd_mat ,source_series_orig)))
     
-    """Compute weights."""
+    """Compute weights."""  
     weighted_inv, weights = _compute_weights(source_series, parcel_series,
                                      source_identities, inv_mat)
+    
+    """ Perform parcel flips (multiply by 1 or -1) depending on inverse forward operation result. 
+    This is to make evoked responses of neighbouring parcels match in direction. """
+    sensor_orig = np.ones((fwd_mat.shape[0], 1))
+    inversed = np.dot(weighted_inv, sensor_orig)
+    
+    for index, parcel in enumerate(id_set): 
+        # Index sources (not) belonging to the parcel
+        ni = [i for i, source in enumerate(source_identities) if source != parcel]
+        ii = [i for i, source in enumerate(source_identities) if source == parcel]
+        
+        # Forward model parcel's sources using bulk simulated "series". Flip whole parcels.
+        fwd_par = 1*fwd_mat
+        fwd_par[:,ni] = 0
+        sensor_mod = np.dot(fwd_par, inversed)
+        parcel_flip = np.sign(sum(sensor_mod))[0,0]
+        weighted_inv[ii,:] *= parcel_flip
+        weights[ii] *= parcel_flip
+        
     return weighted_inv, weights
 
 
@@ -166,7 +181,7 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
         # Normalize per parcel.
         weights_normalized[ii] = weights[ii] * (norm(inv_mat[ii]) /
                                                 norm(weighted_inv[ii]))
-
+        
     """Parcel level normalized operator."""
     weighted_inv = np.einsum('ij,i->ij', inv_mat, weights_normalized)
 
@@ -174,7 +189,7 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
     parcel weightedInvOp gets Nan values due to normalizations."""
     weighted_inv *= norm(inv_mat) / norm(np.nan_to_num(weighted_inv))
     weighted_inv = np.nan_to_num(weighted_inv)
-
+    
     return weighted_inv, weights
 
 

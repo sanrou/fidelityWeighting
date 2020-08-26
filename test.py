@@ -32,7 +32,7 @@ print('Loading sample data...')
 """Settings."""
 subject = 'sample'
 parcellation = 'aparc'   # Options: aparc.a2009s, aparc. Note that Destrieux parcellation seems to already be optimized/flipped, so weighting has only a minor effect.
-inversion_method = 'dSPM'   # Options: MNE, dSPM, eLORETA. sLORETA is not well supported.
+method = 'dSPM'   # Options: MNE, dSPM, eLORETA. sLORETA is not well supported.
 fpath = sample.data_path()
 fpath_meg = os.path.join(fpath, 'MEG', 'sample')
 subjects_dir = os.path.join(fpath, 'subjects')
@@ -49,7 +49,7 @@ inv = read_inverse_operator(fname_inverse)
 fwd_fixed = convert_forward_solution(fwd, force_fixed=True, use_cps=True)
 
 """Prepare the inverse operator for use."""  # Inverse loads with free orientation
-inv = prepare_inverse_operator(inv, 1, 1./9, inversion_method)
+inv = prepare_inverse_operator(inv, 1, 1./9, method)
 
 """Read labels from FreeSurfer annotation files."""
 labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
@@ -58,15 +58,15 @@ labels = read_labels_from_annot(subject, subjects_dir=subjects_dir,
 """
 Create weighted inverse operator.
 """
-weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method=inversion_method)
+weighted_inv = weight_inverse_operator(fwd_fixed, inv, labels, method=method)
 
 """   Analyze results   """
 """ Check if weighting worked. """
 source_identities, fwd_mat, inv_mat = _extract_operator_data(
-                            fwd_fixed, inv, labels, method=inversion_method)
+                            fwd_fixed, inv, labels, method=method)
 
 fidelity, cp_PLV = fidelity_estimation_matrix(fwd_mat, weighted_inv, source_identities)
-fidelityO, cp_PLVO = fidelity_estimation(fwd_fixed, inv, labels, method=inversion_method)
+fidelityO, cp_PLVO = fidelity_estimation(fwd_fixed, inv, labels, method=method)
 
 
 
@@ -131,12 +131,12 @@ input('Dipoles visualized. Left-hold-drag to rotate. Press enter here to continu
 
 """ Model source and parcel level activity. """
 source_data = apply_weighting_evoked(evoked, fwd_fixed, inv, weighted_inv,
-                              labels, method=inversion_method, out_dim='source')
+                              labels, method=method, out_dim='source')
 
 """Collapse weighted operator."""
 col_w_inv = collapse_operator(weighted_inv, source_identities)
 parcel_series = apply_weighting_evoked(evoked, fwd_fixed, inv, col_w_inv,
-                              labels, method=inversion_method, out_dim='parcel')
+                              labels, method=method, out_dim='parcel')
 
 n_sources = np.shape(source_data)[0]
 
@@ -149,7 +149,7 @@ print('Source level visualization. Close visualization windows to continue.')
 vertices = [fwd_fixed['src'][0]['vertno'], fwd_fixed['src'][1]['vertno']]
 
 stc = SourceEstimate(np.abs(source_data), vertices, tmin=0.0, tstep=0.001) # weighted
-stc_orig = apply_inverse(evoked, inv, 1/9., inversion_method) # original
+stc_orig = apply_inverse(evoked, inv, 1/9., method) # original
 
 stc.plot(subject=subject, subjects_dir=subjects_dir, hemi='both',
           time_viewer=True, colormap='mne', alpha=0.5, transparent=True,
