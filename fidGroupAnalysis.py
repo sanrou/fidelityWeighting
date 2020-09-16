@@ -12,6 +12,8 @@ import numpy as np
 import os
 import glob
 import matplotlib.pyplot as plt
+import matplotlib
+# from scipy import stats
 
 from fidelityOpMinimal import fidelity_estimation, make_series_paired
 
@@ -183,11 +185,28 @@ tpOStd = np.std(tpOArray, axis=0)
 
 
 
-""" Plot Fidelities. """
+"""   Plots   """
 import pandas as pd
 
 parcelList = list(range(0, n_parcels))
 
+# Set font type to be CorelDraw compatible, supposedly. 
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+# Set global figure parameters
+import matplotlib.pylab as pylab
+params = {'legend.fontsize': '7',
+          'figure.figsize': (3, 2),
+         'axes.labelsize': '7',
+         'axes.titlesize':'7',
+         'xtick.labelsize':'7',
+         'ytick.labelsize':'7',
+         'lines.linewidth':'0.5'}
+pylab.rcParams.update(params)
+
+
+""" Plot Fidelities. """
 # Sort according to original fidelity
 sorting = np.argsort(fidOAverage)
 
@@ -205,19 +224,20 @@ ax.plot(meansWF, color='black', linestyle='-',
 ax.plot(meansOF, color='black', linestyle='--', 
         label='Original fidelity, mean: ' + "{:.3f}".format(np.mean(fidOAverage)))
 
-legend = ax.legend(loc='best', shadow=False, fontsize='12')
+legend = ax.legend(loc='best', shadow=False)
 legend.get_frame()
 
 ax.fill_between(parcelList, np.ravel(meansWF-stdsWF), np.ravel(meansWF+stdsWF), color='black', alpha=0.5)
 ax.fill_between(parcelList, np.ravel(meansOF-stdsOF), np.ravel(meansOF+stdsOF), color='black', alpha=0.3)
-ax.set_ylabel('Fidelity', fontsize='12')
-ax.set_xlabel('Parcels, sorted by original', fontsize='12')
+ax.set_ylabel('Fidelity')
+ax.set_xlabel('Parcels, sorted by original')
 
 ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
 ax.spines['left'].set_visible(False)
 ax.spines['right'].set_visible(False)
 
+plt.tight_layout(pad=0.1)
 plt.show()
 
 
@@ -238,19 +258,20 @@ ax.plot(meansO.iloc[:,0], meansO.iloc[:,1], color='black', linestyle='--',
         label='Original, TPR at FPR 0.15: ' 
         + "{:.3f}".format(tpOAverage[find_nearest_index(binArray, 0.15)]))
 
-legend = ax.legend(loc='right', shadow=False, fontsize='12')
+legend = ax.legend(loc='right', shadow=False)
 legend.get_frame()
 
 ax.fill_between(meansW.iloc[:,0], meansW.iloc[:,1]-stdsW.iloc[:,0], meansW.iloc[:,1]+stdsW.iloc[:,0], color='black', alpha=0.5)
 ax.fill_between(meansO.iloc[:,0], meansO.iloc[:,1]-stdsO.iloc[:,0], meansO.iloc[:,1]+stdsO.iloc[:,0], color='black', alpha=0.3)
-ax.set_ylabel('True positive rate', fontsize='12')
-ax.set_xlabel('False positive rate', fontsize='12')
+ax.set_ylabel('True positive rate')
+ax.set_xlabel('False positive rate')
 
 ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
 ax.spines['left'].set_visible(False)
 ax.spines['right'].set_visible(False)
 
+plt.tight_layout(pad=0.1)
 plt.show()
 
 
@@ -272,12 +293,12 @@ ax.plot(meansR, color='black', linestyle='-',
         label='Relative fidelity, mean: ' + "{:.3f}".format(np.mean(meansR)))
 ax.plot(100*np.ones(n_parcels, dtype=float), color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %.
 
-legend = ax.legend(loc='best', shadow=False, fontsize='12')
+legend = ax.legend(loc='best', shadow=False)
 legend.get_frame()
 
 ax.fill_between(parcelList, np.ravel(meansR-stdsR), np.ravel(meansR+stdsR), color='black', alpha=0.5)
-ax.set_ylabel('Relative fidelity (+-SD)', fontsize='12')
-ax.set_xlabel('Parcels, sorted by relative benefit', fontsize='12')
+ax.set_ylabel('Relative fidelity (%)')
+ax.set_xlabel('Parcels, sorted by benefit')
 
 
 ax.spines['top'].set_visible(False)
@@ -285,17 +306,18 @@ ax.spines['bottom'].set_visible(False)
 ax.spines['left'].set_visible(False)
 ax.spines['right'].set_visible(False)
 
-plt.show()
+plt.tight_layout(pad=0.1)
 plt.ylim(0, 300)
+plt.show()
 
 
 
 """ Plot relative ROC gain, True positives/True positives by false positives bins. """
 # Skip first and last bin because division by zero
-meansRR = pd.DataFrame(np.array([binArray[1:-1], tpWAverage[1:-1] / tpOAverage[1:-1]]).T,
+meansRR = pd.DataFrame(np.array([binArray[1:-1], 100* (tpWAverage[1:-1] / tpOAverage[1:-1])]).T,
                        columns=['FP bins','TP-relative'])
-stdsRR = pd.DataFrame(np.array([binArray[1:-1], tpWStd[1:-1] / tpOStd[1:-1]]).T,
-                       columns=['FP bins','TP-relative'])
+stdsRR = np.std(100* (tpWArray[:, 1:-1] / tpOArray[:, 1:-1]), axis=0)
+stdsRR = pd.DataFrame(np.array([binArray[1:-1], stdsRR]).T, columns=['FP bins','TP-relative'])
 
 fig, ax = plt.subplots(1,1)
 
@@ -303,19 +325,20 @@ ax.plot(meansRR.iloc[:,0], meansRR.iloc[:,1], color='black', linestyle='-',
         label='Relative TPR at FPR 0.15: ' 
         + "{:.3f}".format(meansRR.iloc[:,1][find_nearest_index(binArray[1:-1], 0.15)]))
 # ax.plot(np.ones(len(binArray[1:-1]), dtype=float), color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %.
-ax.plot([0, 1], [1, 1], color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %.
+ax.plot([0, 1], [100, 100], color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %. [X X] [Y, Y]
 
-legend = ax.legend(loc='best', shadow=False, fontsize='12')
+legend = ax.legend(loc='best', shadow=False)
 legend.get_frame()
 
-ax.fill_between(meansRR.iloc[:,0], meansRR.iloc[:,1]-stdsRR.iloc[:,0],
-                meansRR.iloc[:,1]+stdsRR.iloc[:,0], color='black', alpha=0.5)
-ax.set_ylabel('Relative true positive rate', fontsize='12')
-ax.set_xlabel('False positive rate', fontsize='12')
+ax.fill_between(meansRR.iloc[:,0], meansRR.iloc[:,1]-stdsRR.iloc[:,1],
+                meansRR.iloc[:,1]+stdsRR.iloc[:,1], color='black', alpha=0.5)
+ax.set_ylabel('Relative true positive rate (%)')
+ax.set_xlabel('False positive rate')
 
 ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
 ax.spines['left'].set_visible(False)
 ax.spines['right'].set_visible(False)
 
+plt.tight_layout(pad=0.1)
 plt.show()
