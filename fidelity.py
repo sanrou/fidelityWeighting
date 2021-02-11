@@ -220,7 +220,7 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
 
 
 
-def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000):
+def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False):
     """Function for computing a fidelity-weighted inverse operator.
        Called by weight_inverse_operator. Parcel level flips are applied.
        
@@ -268,22 +268,23 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     
     """ Perform parcel flips (multiply by 1 or -1) depending on inverse forward operation result. 
     This is to make evoked responses of neighbouring parcels match in direction. """
-    sensor_orig = np.ones((fwd_mat.shape[0], 1))
-    inversed = np.dot(weighted_inv, sensor_orig)
-    
-    for index, parcel in enumerate(id_set): 
-    # for parcel in range(source_identities): 
-        # Index sources (not) belonging to the parcel
-        ni = [i for i, source in enumerate(source_identities) if source != parcel]
-        ii = [i for i, source in enumerate(source_identities) if source == parcel]
+    if parcel_flip==True:    
+        sensor_orig = np.ones((fwd_mat.shape[0], 1))
+        inversed = np.dot(weighted_inv, sensor_orig)
         
-        # Forward model parcel's sources using bulk simulated "series". Flip whole parcels.
-        fwd_par = 1*fwd_mat
-        fwd_par[:,ni] = 0
-        sensor_mod = np.dot(fwd_par, inversed)
-        parcel_flip = np.sign(sum(sensor_mod))[0]
-        weighted_inv[ii,:] *= parcel_flip
-        weights[ii] *= parcel_flip
+        for index, parcel in enumerate(id_set): 
+        # for parcel in range(source_identities): 
+            # Index sources (not) belonging to the parcel
+            ni = [i for i, source in enumerate(source_identities) if source != parcel]
+            ii = [i for i, source in enumerate(source_identities) if source == parcel]
+            
+            # Forward model parcel's sources using bulk simulated "series". Flip whole parcels.
+            fwd_par = 1*fwd_mat
+            fwd_par[:,ni] = 0
+            sensor_mod = np.dot(fwd_par, inversed)
+            parcel_flip = np.sign(sum(sensor_mod))[0]
+            weighted_inv[ii,:] *= parcel_flip
+            weights[ii] *= parcel_flip
     
     return weighted_inv
 

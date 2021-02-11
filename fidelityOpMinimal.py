@@ -20,7 +20,7 @@ from random import shuffle
 
 
 
-def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000):
+def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False):
     """Function for computing a fidelity-weighted inverse operator.
        Note that only good channels are expected. Parcel level flips are applied.
        
@@ -67,21 +67,22 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     
     """ Perform parcel flips (multiply by 1 or -1) depending on inverse forward operation result. 
     This is to make evoked responses of neighbouring parcels match in direction. """
-    sensor_orig = np.ones((fwd_mat.shape[0], 1))
-    inversed = np.dot(weighted_inv, sensor_orig)
-    
-    for index, parcel in enumerate(id_set): 
-        # Index sources (not) belonging to the parcel
-        ni = [i for i, source in enumerate(source_identities) if source != parcel]
-        ii = [i for i, source in enumerate(source_identities) if source == parcel]
+    if parcel_flip==True:
+        sensor_orig = np.ones((fwd_mat.shape[0], 1))
+        inversed = np.dot(weighted_inv, sensor_orig)
         
-        # Forward model parcel's sources using bulk simulated "series". Flip whole parcels.
-        fwd_par = 1*fwd_mat
-        fwd_par[:,ni] = 0
-        sensor_mod = np.dot(fwd_par, inversed)
-        parcel_flip = np.sign(sum(sensor_mod))[0,0]
-        weighted_inv[ii,:] *= parcel_flip
-        weights[ii] *= parcel_flip
+        for index, parcel in enumerate(id_set): 
+            # Index sources (not) belonging to the parcel
+            ni = [i for i, source in enumerate(source_identities) if source != parcel]
+            ii = [i for i, source in enumerate(source_identities) if source == parcel]
+            
+            # Forward model parcel's sources using bulk simulated "series". Flip whole parcels.
+            fwd_par = 1*fwd_mat
+            fwd_par[:,ni] = 0
+            sensor_mod = np.dot(fwd_par, inversed)
+            parcel_flip = np.sign(sum(sensor_mod))[0,0]
+            weighted_inv[ii,:] *= parcel_flip
+            weights[ii] *= parcel_flip
         
     return weighted_inv, weights
 
@@ -196,7 +197,7 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
 
 
 def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_series=np.asarray([])):
-    ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014)
+    ''' Compute fidelity and cross-patch PLV (see Korhonen et al 2014)
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
     Input arguments: 
