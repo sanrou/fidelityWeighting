@@ -10,16 +10,17 @@ import os
 import glob
 import numpy as np
 import time
+from tqdm import tqdm
 from fidelityOpMinimal import compute_weighted_operator, collapse_operator
 
-subjectsFolder = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\'
+subjectsFolder = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
 forwardPattern = '\\forwardOperatorMEEG.csv'
 inversePattern = '\\inverseOperatorMEEG.csv'
-sourceIdPattern = '\\sourceIdentities_parc2018yeo7_600_consolidated.csv'
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_597.csv'
 oldPattern = 'inverseOperatorMEEG'
-newPattern = 'weighted_invOperatorMEEG_yeo7_600_consolidated'   # _collapsed is added to the collapsed version file name end
+newPattern = 'weighted_invOperatorMEEG_parc2018yeo7_597_parcelFlipped'   # _collapsed is added to the collapsed version file name end
 saveCollapsed = True   # If true, save a collapsed weighted inverse operator (parcels x sensors) with normal weighted inverse operator (sources x sensors).
-parcelFlip = False
+parcelFlip = True
 
 delimiter = ';'
 
@@ -32,12 +33,12 @@ if any('_Population' in s for s in subjects):
     subjects.remove('_Population')
 times = [time.perf_counter()]
 ## Loop over folders containing subjects.
-for i, subject in enumerate(subjects):
+for i, subject in enumerate(tqdm(subjects)):
     subjectFolder = os.path.join(subjectsFolder, subject)
     times.append(time.perf_counter())
     
     # Load forward and inverse operator matrices
-    print(subject + ' being computed. Tic: ' + str(times[-1]-times[-2]) + ' s')
+    print(' ' + subject + ' being computed.')
     fileSourceIdentities = glob.glob(subjectFolder + sourceIdPattern)[0]
     fileForwardOperator  = glob.glob(subjectFolder + forwardPattern)[0]
     fileInverseOperator  = glob.glob(subjectFolder + inversePattern)[0]

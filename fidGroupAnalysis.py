@@ -10,6 +10,7 @@ import numpy as np
 import os
 import glob
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from fidelityOpMinimal import fidelity_estimation, make_series_paired
 
@@ -18,10 +19,10 @@ from fidelityOpMinimal import fidelity_estimation, make_series_paired
 """Load source identities, forward and inverse operators from csv. """
 subjectsPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\'
 
-sourceIdPattern = '\\sourceId*parc68.csv'
-weightedOpPattern = '\\weighted*MEEG_68_noParcelFlip.csv'
-forwardPattern  = '\\*forward*MEEG.csv'
-inversePattern  = '\\*inverse*MEEG.csv'
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_942.csv'
+weightedOpPattern = '\\weighted_invOperatorMEEG_parc2018yeo7_942.csv'
+forwardPattern  = '\\forwardOperatorMEEG.csv'
+inversePattern  = '\\inverseOperatorMEEG.csv'
     
 delimiter = ';'
 n_samples = 10000
@@ -105,8 +106,8 @@ tpOArray = np.zeros((len(subjects), n_bins), dtype=float)
 sizeArray = []
 
 ### Loop over subjects. Insert values to subject x parcels/bins arrays.
+# for run_i, subject in enumerate(tqdm(subjects)):    # Does this make the loop much slower?
 for run_i, subject in enumerate(subjects):
-
     ## Load files
     subjectFolder = os.path.join(subjectsPath, subject)
     fileSourceIdentities = glob.glob(subjectFolder + sourceIdPattern)[0]

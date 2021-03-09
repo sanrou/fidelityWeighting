@@ -126,6 +126,8 @@ def make_series(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)):
 
 def plv(x, y, source_identities):
     """ Function for computing the complex phase-locking value.
+    x : Source time series 
+    y : Parcel time series
     source_identities : ndarray [sources]
         Expected ids for parcels are 0 to n-1, where n is number of parcels, 
         and -1 for sources that do not belong to any parcel. 
@@ -300,24 +302,34 @@ def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)
         Simulated oscillating parcel time-series. 
         Half are time shifted copies of the first half.
         Each parcel has degree of one.
+        In case of odd number of parcels, one parcel does not have a pair.
     pairs : ndarray
         Parcel edge pairs.
     """
     
     decim_factor = 5
-    n_parcels_half = np.int(n_parcels/2)
+    n_parcels_half = n_parcels//2
+    remainder = n_parcels%2
     time_shift = (0, time_shift)  # Do not shift across parcels, only time.
     
-    pairs = list(range(0, n_parcels))
+    pairs = list(range(0, n_parcels-remainder))
     shuffle(pairs)
     pairs = np.reshape(pairs, (n_parcels_half, 2))
     
     # Do signals for half of the parcels. Time shift the other half from the first half.
-    s = randn(n_parcels_half, n_samples*decim_factor+2*n_cut_samples)
+    s = randn(n_parcels_half+remainder, n_samples*decim_factor+2*n_cut_samples)
     
-    for i in np.arange(0, n_parcels_half):
+    for i in np.arange(0, n_parcels_half+remainder):
         s[i, :] = signal.cwt(s[i, :], signal.ricker, widths)
-        
+    
+    # Separate last sample of s in case there is an odd numbered number of parcels.
+    if remainder == 1:
+        s_rem = s[-1,:]
+        s = np.delete(s, -1, 0)     # Delete last row from s.
+        s_rem = signal.hilbert(s_rem)
+        s_rem = s_rem[n_cut_samples:-n_cut_samples]
+        s_rem = scipy.signal.decimate(s_rem, decim_factor)
+    
     s_shift = shift(s, time_shift, mode='wrap')
     s = signal.hilbert(s)
     s_shift = signal.hilbert(s_shift)
@@ -332,6 +344,8 @@ def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)
     s_comb = np.zeros((n_parcels, n_samples), dtype=complex)
     s_comb[pairs[:,0],:] = s
     s_comb[pairs[:,1],:] = s_shift
+    if remainder == 1:
+        s_comb[-1,:] = s_rem
     return s_comb, pairs
 
 
