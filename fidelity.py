@@ -57,7 +57,45 @@ def make_series(n_parcels, n_samples, n_cut_samples, widths):
 
 
 def plv(x, y, source_identities):
-    """ Function for computing the complex phase-locking value."""
+    """ Function for computing the complex phase-locking value.
+    Input:
+    x : complex     Source time series
+    y : complex     Parcel time series
+    source_identities : int     Vector mapping of source parcel identities.
+    
+    Output:
+    cPLV : complex PLV of sources
+    """
+    
+    """Change to amplitude 1, keep angle using Euler's formula."""
+    x = np.exp(1j*(asmatrix(np.angle(x))))
+    y = np.exp(1j*(asmatrix(np.angle(y))))
+
+    """Get cPLV needed for flips and weighting."""
+    cplv = np.zeros(len(source_identities), dtype='complex')
+
+    for i, identity in enumerate(source_identities):
+        """Compute cPLV only of parcel source pairs of sources that
+        belong to that parcel. One source belong to only one parcel."""
+        if (source_identities[i] >= 0):
+            cplv[i] = (np.sum((np.asarray(y[identity])) *
+                       np.conjugate(np.asarray(x[i]))))
+
+    cplv /= np.shape(x)[1]
+    return cplv
+
+
+def parcel_plv(x, y, source_identities):
+    """ Function for computing the complex phase-locking value at parcel level.
+    Input:
+    x : complex     Source time series. 
+    y : complex     Source time series. 
+    source_identities : int     Vector mapping of source parcel identities.
+    
+    Output:
+    cPLV: complex PLV of parcels, sorted by identity.
+    """
+    
     
     """Change to amplitude 1, keep angle using Euler's formula."""
     x = np.exp(1j*(asmatrix(np.angle(x))))
@@ -78,13 +116,13 @@ def plv(x, y, source_identities):
 
 
 
-def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
+def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=2):
     """Function for computing the weights of the weighted inverse operator."""
     
     cplv_array = plv(source_series, parcel_series, source_identities)
     
     """Get weights and flip. This could be the output."""
-    weights = np.sign(np.real(cplv_array)) * np.real(cplv_array) ** 2    
+    weights = np.sign(np.real(cplv_array)) * np.real(cplv_array) ** exponent
     
     """Create weighted inverse operator and normalize the norm of weighted inv op
     to match original inv op's norm."""
@@ -108,12 +146,12 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
     """Parcel level normalized operator."""
     weighted_inv = np.einsum('ij,i->ij', inv_mat, weights_normalized)
 
-    """Operator level normalized operator. If there are sources not in any
-    parcel weightedInvOp gets Nan values due to normalizations."""
-    weighted_inv *= norm(inv_mat) / norm(np.nan_to_num(weighted_inv))
-    weighted_inv = np.nan_to_num(weighted_inv)
+    # """Operator level normalized operator. If there are sources not in any
+    # parcel weightedInvOp gets Nan values due to normalizations."""
+    # weighted_inv *= norm(inv_mat) / norm(np.nan_to_num(weighted_inv))
+    # weighted_inv = np.nan_to_num(weighted_inv)
 
-    return weighted_inv, weights
+    return weighted_inv, weights_normalized
 
 
 
@@ -220,7 +258,7 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
 
 
 
-def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False):
+def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=2):
     """Function for computing a fidelity-weighted inverse operator.
        Called by weight_inverse_operator. Parcel level flips are applied.
        
@@ -264,7 +302,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     
     """Compute weights."""
     weighted_inv, weights = _compute_weights(source_series, parcel_series,
-                                     source_identities, inv_mat)
+                                     source_identities, inv_mat, exponent=exponent)
     
     """ Perform parcel flips (multiply by 1 or -1) depending on inverse forward operation result. 
     This is to make evoked responses of neighbouring parcels match in direction. """
@@ -286,7 +324,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
             weighted_inv[ii,:] *= parcel_flip
             weights[ii] *= parcel_flip
     
-    return weighted_inv
+    return weighted_inv, weights
 
 
 
@@ -318,10 +356,10 @@ def weight_inverse_operator(fwd_fixed, inv_prep, labels, method='dSPM'):
                                             inv_prep, labels, method = method)
     
     """Compute the weighted operator."""
-    weighted_inv = compute_weighted_operator(fwd_mat, inv_mat,
+    weighted_inv, weights = compute_weighted_operator(fwd_mat, inv_mat,
                                              source_identities)
     
-    return weighted_inv
+    return weighted_inv, weights
 
 
 
@@ -449,7 +487,7 @@ def fidelity_estimation(fwd, inv_prep, labels, method = 'dSPM', n_samples = 2000
 
 
 def fidelity_estimation_matrix(fwd, inv, source_identities, n_samples = 20000):
-    ''' Compute fidelity and cross-patch PL60V (see Korhonen et al 2014) matrix input.
+    ''' Compute fidelity and cross-patch PLV (see Korhonen et al 2014) matrix input.
     Can be used for exclusion of low-fidelity parcels and parcel pairs with high CP-PLV.
     
     Input arguments: 
@@ -514,8 +552,6 @@ def fidelity_estimation_matrix(fwd, inv, source_identities, n_samples = 20000):
     for t in range(n_samples):
         parcelPLVn = estimatedParcelSeries[:,t] / np.abs(estimatedParcelSeries[:,t]) 
         cpPLV += np.outer(parcelPLVn, np.conjugate(parcelPLVn)) /n_samples
-    
-    # cpPLV = np.abs(cpPLV)    # Maybe one should keep np.abs().
     
     # Change to amplitude 1, keep angle using Euler's formula.
     origParcelSeries = np.exp(1j*(np.asmatrix(np.angle(origParcelSeries))))   

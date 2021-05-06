@@ -20,7 +20,7 @@ from random import shuffle
 
 
 
-def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False):
+def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=2):
     """Function for computing a fidelity-weighted inverse operator.
        Note that only good channels are expected. Parcel level flips are applied.
        
@@ -63,7 +63,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     
     """Compute weights."""  
     weighted_inv, weights = _compute_weights(source_series, parcel_series,
-                                     source_identities, inv_mat)
+                                     source_identities, inv_mat, exponent=exponent)
     
     """ Perform parcel flips (multiply by 1 or -1) depending on inverse forward operation result. 
     This is to make evoked responses of neighbouring parcels match in direction. """
@@ -109,7 +109,6 @@ def make_series(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)):
     s : ndarray
         Simulated oscillating parcel time-series.
     """
-    
     decim_factor = 5
     s = randn(n_parcels, n_samples*decim_factor+2*n_cut_samples)
 
@@ -152,7 +151,7 @@ def plv(x, y, source_identities):
 
 
 
-def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
+def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=2):
     """Function for computing the weights of the weighted inverse operator.
     source_identities : ndarray [sources]
         Expected ids for parcels are 0 to n-1, where n is number of parcels, 
@@ -163,7 +162,7 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
     cplv_array = plv(source_series, parcel_series, source_identities)
 
     """Get weights and flip. This could be the output."""
-    weights = np.sign(np.real(cplv_array)) * np.real(cplv_array) ** 2    
+    weights = np.sign(np.real(cplv_array)) * np.real(cplv_array) ** exponent
 
     """Create weighted inverse operator and normalize the norm of weighted inv op
     to match original inv op's norm."""
@@ -175,7 +174,7 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
     id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
     n_parcels = len(id_set)  # Number of unique IDs with ID >= 0
 
-    """Initialize norm normalized weights. Maybe not necessary."""
+    """Initialize norm normalized weights. Weighted parcels to original norm."""
     weights_normalized = np.zeros(len(weights))
     for parcel in range(n_parcels): # Normalize parcel level norms.
         # Index sources belonging to parcel
@@ -185,15 +184,20 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat):
         weights_normalized[ii] = weights[ii] * (norm(inv_mat[ii]) /
                                                 norm(weighted_inv[ii]))
         
+        # ### TODO: TEMP, try what happens with parcel level flips if the parcel has more -1 flips, flip whole parcel.
+        # # Flip parcel's sources if it has more -1 flips than 1.
+        # if np.mean(np.sign(weights[ii])) < 0:
+        #     weights_normalized[ii] *= -1
+        
     """Parcel level normalized operator."""
     weighted_inv = np.einsum('ij,i->ij', inv_mat, weights_normalized)
 
-    """Operator level normalized operator. If there are sources not in any
-    parcel weightedInvOp gets Nan values due to normalizations."""
-    weighted_inv *= norm(inv_mat) / norm(np.nan_to_num(weighted_inv))
-    weighted_inv = np.nan_to_num(weighted_inv)
+    # """Operator level normalized operator. If there are sources not in any
+    # parcel weightedInvOp gets Nan values due to normalizations."""
+    # weighted_inv *= norm(inv_mat) / norm(np.nan_to_num(weighted_inv))
+    # weighted_inv = np.nan_to_num(weighted_inv)
     
-    return weighted_inv, weights
+    return weighted_inv, weights_normalized
 
 
 
@@ -259,8 +263,6 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_s
     for t in range(n_samples):
         parcelPLVn = estimatedParcelSeries[:,t] / np.abs(estimatedParcelSeries[:,t]) 
         cpPLV += np.outer(parcelPLVn, np.conjugate(parcelPLVn)) /n_samples
-    
-    # cpPLV = np.abs(cpPLV)  ### TEMP Removed absolute value out.
     
     # Change to amplitude 1, keep angle using Euler's formula.
     origParcelSeries = np.exp(1j*(np.asmatrix(np.angle(origParcelSeries))))   
