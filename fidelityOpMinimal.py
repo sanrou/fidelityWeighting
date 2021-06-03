@@ -20,7 +20,7 @@ from random import shuffle
 
 
 
-def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=2):
+def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=4):
     """Function for computing a fidelity-weighted inverse operator.
        Note that only good channels are expected. Parcel level flips are applied.
        
@@ -62,11 +62,11 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
     source_series = np.dot(inv_mat,(np.dot(fwd_mat ,source_series_orig)))
     
     """Compute weights."""  
-    weighted_inv, weights = _compute_weights(source_series, parcel_series,
+    weighted_inv, weights, cplvs = _compute_weights(source_series, parcel_series,
                                      source_identities, inv_mat, exponent=exponent)
     
     """ Perform parcel flips (multiply by 1 or -1) depending on inverse forward operation result. 
-    This is to make evoked responses of neighbouring parcels match in direction. """
+    This is to make evoked responses of neighbouring parcels match in direction. Not recommended. """
     if parcel_flip==True:
         sensor_orig = np.ones((fwd_mat.shape[0], 1))
         inversed = np.dot(weighted_inv, sensor_orig)
@@ -83,8 +83,7 @@ def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=100
             parcel_flip = np.sign(sum(sensor_mod))[0,0]
             weighted_inv[ii,:] *= parcel_flip
             weights[ii] *= parcel_flip
-        
-    return weighted_inv, weights
+    return weighted_inv, weights, cplvs
 
 
 
@@ -151,7 +150,7 @@ def plv(x, y, source_identities):
 
 
 
-def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=2):
+def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=4):
     """Function for computing the weights of the weighted inverse operator.
     source_identities : ndarray [sources]
         Expected ids for parcels are 0 to n-1, where n is number of parcels, 
@@ -184,20 +183,10 @@ def _compute_weights(source_series, parcel_series, source_identities, inv_mat, e
         weights_normalized[ii] = weights[ii] * (norm(inv_mat[ii]) /
                                                 norm(weighted_inv[ii]))
         
-        # ### TODO: TEMP, try what happens with parcel level flips if the parcel has more -1 flips, flip whole parcel.
-        # # Flip parcel's sources if it has more -1 flips than 1.
-        # if np.mean(np.sign(weights[ii])) < 0:
-        #     weights_normalized[ii] *= -1
-        
     """Parcel level normalized operator."""
     weighted_inv = np.einsum('ij,i->ij', inv_mat, weights_normalized)
 
-    # """Operator level normalized operator. If there are sources not in any
-    # parcel weightedInvOp gets Nan values due to normalizations."""
-    # weighted_inv *= norm(inv_mat) / norm(np.nan_to_num(weighted_inv))
-    # weighted_inv = np.nan_to_num(weighted_inv)
-    
-    return weighted_inv, weights_normalized
+    return weighted_inv, weights_normalized, cplv_array
 
 
 
@@ -337,7 +326,6 @@ def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)
     s_shift = signal.hilbert(s_shift)
     s = s[:, n_cut_samples:-n_cut_samples]
     s_shift = s_shift[:, n_cut_samples:-n_cut_samples]
-    ### TODO: check if amplitude randomization does anything. This is added for s_shifted in LV code. One could use shuffle on the amplitude and keep phase.
     # Decimate the signals separately.
     s = scipy.signal.decimate(s, decim_factor, axis=1)
     s_shift = scipy.signal.decimate(s_shift, decim_factor, axis=1)
@@ -388,3 +376,55 @@ def collapse_operator(operator, identities, op_type='inverse'):
     
     return collapsed_operator
 
+
+
+def source_fid_to_weights(source_fidelities, exponent=4, normalize=True, inverse=np.asarray([]), identities=np.asarray([]), flips=False):
+    """
+    Parameters
+    ----------
+    source_fidelities : ndarray, 1D [Sources]
+          Signed source fidelities. Expected to range between 0 and 1. 
+    exponent : int, optional
+          Exponent to use in formula Weight = Sign x sourceFidelity^Exponent
+    normalize : Boolean, optional
+          Normalize weights so that parcel level norms will be the same before and after weighting?
+    inverse : ndarray, 2D [Sources x Sensors], optional. Has to be given if normalize=True
+          Inverse operator. 
+    identities : ndarray, 1D [Sources], optional. Has to be given if normalize=True
+          Expected ids for parcels are 0 to n-1, where n is number of parcels, 
+          and -1 for sources that do not belong to any parcel.
+    flips : Boolean, optional
+          Give sign to weights, so that sources are flipped (multiplied by 1 or -1)?
+          
+    Returns
+    -------
+    weights : ndarray, 1D [sources]
+    """
+    
+    weights = np.abs(source_fidelities**exponent)   # Non-flipped weights
+    weights = weights if flips==False else weights * np.sign(source_fidelities)   # Multiply by signs of source_fidelities if flips=True
+    
+    if normalize==True:
+      id_set = set(identities)
+      id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
+      n_parcels = len(id_set)  # Number of unique IDs with ID >= 0
+      
+      weighted_inv = np.einsum('ij,i->ij', inverse, weights)
+      weights_normalized = np.zeros(len(weights))
+      for parcel in range(n_parcels): # Normalize parcel level norms.
+        # Index sources belonging to parcel
+        ii = [i for i, source in enumerate(identities) if source == parcel]
+  
+        # Normalize per parcel.
+        weights_normalized[ii] = np.nan_to_num(weights[ii] * (norm(inverse[ii]) / 
+                                                              norm(weighted_inv[ii])))
+        
+    return weights_normalized if normalize==True else weights
+    
+  
+
+
+
+  
+  
+  

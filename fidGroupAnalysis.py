@@ -11,16 +11,17 @@ import os
 import glob
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pandas as pd
 
-from fidelityOpMinimal import fidelity_estimation, make_series_paired
-
+from fidelityOpMinimal import fidelity_estimation, make_series_paired, source_fid_to_weights
 
 
 """Load source identities, forward and inverse operators from csv. """
-subjectsPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\'
+subjectsPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
 
-sourceIdPattern = '\\sourceIdentities_parc2018yeo7_942.csv'
-weightedOpPattern = '\\weighted_invOperatorMEEG_parc2018yeo7_942.csv'
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_200.csv'
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_200.csv'
+savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaefer200 "
 forwardPattern  = '\\forwardOperatorMEEG.csv'
 inversePattern  = '\\inverseOperatorMEEG.csv'
     
@@ -28,6 +29,18 @@ delimiter = ';'
 n_samples = 10000
 n_cut_samples = 40
 widths = np.arange(5, 6)
+
+# Source fidelity to weights settings
+exponent = 2
+normalize = True
+flips = False
+
+# Save and plotting settings
+savePDFs = True
+tightLayout = True
+
+
+
 
 
 def get_tp_fp_rates(cp_PLV, truth_matrix):
@@ -107,22 +120,22 @@ sizeArray = []
 
 ### Loop over subjects. Insert values to subject x parcels/bins arrays.
 # for run_i, subject in enumerate(tqdm(subjects)):    # Does this make the loop much slower?
-for run_i, subject in enumerate(subjects):
+for run_i, subject in enumerate(tqdm(subjects)):
     ## Load files
     subjectFolder = os.path.join(subjectsPath, subject)
     fileSourceIdentities = glob.glob(subjectFolder + sourceIdPattern)[0]
     fileForwardOperator  = glob.glob(subjectFolder + forwardPattern)[0]
     fileInverseOperator  = glob.glob(subjectFolder + inversePattern)[0]
-    fileWeightedOperator = glob.glob(subjectFolder + weightedOpPattern)[0]
+    fileSourceFidelities = glob.glob(subjectFolder + sourceFidPattern)[0]
     
-    identities = np.genfromtxt(fileSourceIdentities, 
-                                        dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
-    forward = np.matrix(np.genfromtxt(fileForwardOperator, 
-                                        dtype='float', delimiter=delimiter))        # sensors x sources
-    inverse = np.matrix(np.genfromtxt(fileInverseOperator, 
-                                        dtype='float', delimiter=delimiter))        # sources x sensors
-    inverse_w = np.matrix(np.genfromtxt(fileWeightedOperator, 
-                                        dtype='float', delimiter=delimiter))        # sources x sensors
+    identities = np.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+    forward = np.matrix(np.genfromtxt(fileForwardOperator, dtype='float', delimiter=delimiter))        # sensors x sources
+    inverse = np.matrix(np.genfromtxt(fileInverseOperator, dtype='float', delimiter=delimiter))        # sources x sensors
+    sourceFids = np.genfromtxt(fileSourceFidelities, dtype='float', delimiter=delimiter)    # sources
+    
+    weights = source_fid_to_weights(sourceFids, exponent=exponent, normalize=normalize, 
+                                    inverse=inverse, identities=identities, flips=flips)
+    inverse_w = np.einsum('ij,i->ij', inverse, weights)
     
     n_parcels = get_n_parcels(identities)
     
@@ -203,27 +216,33 @@ fidOStdSorted = np.std(fidOArraySorted, axis=0)
 
 
 """   Plots   """
-import pandas as pd
-
-parcelList = list(range(0, n_parcels))
-
-# Set font type to be CorelDraw compatible. 
-# matplotlib.rcParams['pdf.fonttype'] = 42
-# matplotlib.rcParams['ps.fonttype'] = 42
-
 # Set global figure parameters, including CorelDraw compatibility (.fonttype)
 import matplotlib.pylab as pylab
-params = {'legend.fontsize':'7',
-          'figure.figsize':(3, 2),
+if tightLayout == True:
+  params = {'legend.fontsize':'7',
+         'figure.figsize':(1.8, 1),
          'axes.labelsize':'7',
          'axes.titlesize':'7',
          'xtick.labelsize':'7',
          'ytick.labelsize':'7',
          'lines.linewidth':'0.5',
          'pdf.fonttype':42,
-         'ps.fonttype':42}
+         'ps.fonttype':42,
+         'font.family':'Arial'}
+else:   # Looks nice on the screen parameters
+  params = {'legend.fontsize':'7',
+         'figure.figsize':(3, 2),
+         'axes.labelsize':'7',
+         'axes.titlesize':'7',
+         'xtick.labelsize':'7',
+         'ytick.labelsize':'7',
+         'lines.linewidth':'0.5',
+         'pdf.fonttype':42,
+         'ps.fonttype':42,
+         'font.family':'Arial'}
 pylab.rcParams.update(params)
 
+parcelList = list(range(0, n_parcels))
 
 """ Plot Fidelities. """
 # Sort according to original fidelity
@@ -246,10 +265,10 @@ ax.plot(meansOF, color='black', linestyle='--',
 legend = ax.legend(loc='best', shadow=False)
 legend.get_frame()
 
-ax.fill_between(parcelList, np.ravel(meansWF-stdsWF), np.ravel(meansWF+stdsWF), color='black', alpha=0.5)
-ax.fill_between(parcelList, np.ravel(meansOF-stdsOF), np.ravel(meansOF+stdsOF), color='black', alpha=0.3)
-ax.set_ylabel('Fidelity')
-ax.set_xlabel('Parcels, sort(mean([fidelity]))')
+# ax.fill_between(parcelList, np.ravel(meansWF-stdsWF), np.ravel(meansWF+stdsWF), color='black', alpha=0.5)
+# ax.fill_between(parcelList, np.ravel(meansOF-stdsOF), np.ravel(meansOF+stdsOF), color='black', alpha=0.3)
+ax.set_ylabel('Parcel fidelity')
+ax.set_xlabel('Parcels, sorted by original')
 
 ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
@@ -258,6 +277,8 @@ ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
 plt.show()
+if savePDFs == True:
+  fig.savefig(savePathBase + 'Fidelities sort orig.pdf', format='pdf')
 
 
 ### TEMP earlier sorting plot test.
@@ -293,6 +314,9 @@ ax.spines['right'].set_visible(False)
 plt.tight_layout(pad=0.1)
 plt.show()
 
+if savePDFs == True:
+  fig.savefig(savePathBase + 'Fidelities sort separate.pdf', format='pdf')
+
 
 """ Plot ROC, True positives, false positives. """
 meansW = pd.DataFrame(np.array([binArray, tpWAverage]).T,columns=['time','mean'])
@@ -327,6 +351,9 @@ ax.spines['right'].set_visible(False)
 plt.tight_layout(pad=0.1)
 plt.show()
 
+if savePDFs == True:
+  fig.savefig(savePathBase + 'True false positive rates ROC.pdf', format='pdf')
+
 
 
 
@@ -349,7 +376,7 @@ ax.plot(100*np.ones(n_parcels, dtype=float), color='black', linestyle='-', linew
 legend = ax.legend(loc='best', shadow=False)
 legend.get_frame()
 
-ax.fill_between(parcelList, np.ravel(meansR-stdsR), np.ravel(meansR+stdsR), color='black', alpha=0.5)
+# ax.fill_between(parcelList, np.ravel(meansR-stdsR), np.ravel(meansR+stdsR), color='black', alpha=0.5)
 ax.set_ylabel('Relative fidelity (%)')
 ax.set_xlabel('Parcels, sorted by benefit')
 
@@ -360,8 +387,11 @@ ax.spines['left'].set_visible(False)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
-plt.ylim(0, 300)
+plt.ylim(50, 200)
 plt.show()
+
+if savePDFs == True:
+  fig.savefig(savePathBase + 'Fidelities relative.pdf', format='pdf')
 
 
 
@@ -383,8 +413,8 @@ ax.plot([0, 1], [100, 100], color='black', linestyle='-', linewidth=0.3)  # Set 
 legend = ax.legend(loc='best', shadow=False)
 legend.get_frame()
 
-ax.fill_between(meansRR.iloc[:,0], meansRR.iloc[:,1]-stdsRR.iloc[:,1],
-                meansRR.iloc[:,1]+stdsRR.iloc[:,1], color='black', alpha=0.5)
+# ax.fill_between(meansRR.iloc[:,0], meansRR.iloc[:,1]-stdsRR.iloc[:,1],
+#                 meansRR.iloc[:,1]+stdsRR.iloc[:,1], color='black', alpha=0.5)
 ax.set_ylabel('Relative TPR (%)')
 ax.set_xlabel('False positive rate')
 
@@ -394,7 +424,11 @@ ax.spines['left'].set_visible(False)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
+plt.ylim(50, 150)
 plt.show()
+
+if savePDFs == True:
+  fig.savefig(savePathBase + 'True false positive rates ROC relative.pdf', format='pdf')
 
 
 
@@ -418,6 +452,9 @@ ax.spines['right'].set_visible(False)
 plt.tight_layout(pad=0.1)
 plt.show()
 
+if savePDFs == True:
+  fig.savefig(savePathBase + 'Fidelities Orig x Weighted scatter.pdf', format='pdf')
+
 
 
 """ Scatter plot weighted and original ROC at FPR 0.15. """
@@ -439,6 +476,9 @@ ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
 plt.show()
+
+if savePDFs == True:
+  fig.savefig(savePathBase + 'True positive rates Orig x Weighted scatter.pdf', format='pdf')
 
 
 

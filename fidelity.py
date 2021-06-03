@@ -116,7 +116,7 @@ def parcel_plv(x, y, source_identities):
 
 
 
-def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=2):
+def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=4):
     """Function for computing the weights of the weighted inverse operator."""
     
     cplv_array = plv(source_series, parcel_series, source_identities)
@@ -258,7 +258,7 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
 
 
 
-def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=2):
+def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=4):
     """Function for computing a fidelity-weighted inverse operator.
        Called by weight_inverse_operator. Parcel level flips are applied.
        
@@ -364,7 +364,7 @@ def weight_inverse_operator(fwd_fixed, inv_prep, labels, method='dSPM'):
 
 
 
-def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0, stop=None, method = 'dSPM', out_dim = 'parcel'):
+def apply_weighting_evoked(evoked, fwd, inv_prep, weighted_inv, labels, start=0, stop=None, method='dSPM', out_dim='parcel'):
     """Apply fidelity-weighted inverse operator to evoked data.    
         ---> it also seems to work on "regular data" just as well!
     Input arguments:
@@ -604,3 +604,49 @@ def collapse_operator(operator, identities, op_type='inverse'):
         collapsed_operator = np.dot(sourceParcelMatrix, operator)
     
     return collapsed_operator
+
+
+
+def source_fid_to_weights(source_fidelities, exponent=4, normalize=True, inv_mat=np.asarray([]), identities=np.asarray([]), flips=False):
+    """
+    Parameters
+    ----------
+    source_fidelities : ndarray, 1D [Sources]
+          Signed source fidelities. Expected to range between 0 and 1. 
+    exponent : int, optional
+          Exponent to use in formula Weight = Sign x sourceFidelity^Exponent
+    normalize : Boolean, optional
+          Normalize weights so that parcel level norms will be the same before and after weighting?
+    inv_mat : ndarray, 2D [Sources x Sensors], optional. Has to be given if normalize=True
+          Inverse operator. 
+    identities : ndarray, 1D [Sources], optional. Has to be given if normalize=True
+          Expected ids for parcels are 0 to n-1, where n is number of parcels, 
+          and -1 for sources that do not belong to any parcel.
+    flips : Boolean, optional
+          Give sign to weights, so that sources are flipped (multiplied by 1 or -1)?
+          
+    Returns
+    -------
+    weights : ndarray, 1D [sources]
+    """
+    
+    weights = np.abs(source_fidelities**exponent)   # Non-flipped weights
+    weights = weights if flips==False else weights * np.sign(source_fidelities)   # Multiply by signs of source_fidelities if flips=True
+    
+    if normalize==True:
+      id_set = set(identities)
+      id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
+      n_parcels = len(id_set)  # Number of unique IDs with ID >= 0
+      
+      weighted_inv = np.einsum('ij,i->ij', inv_mat, weights)
+      weights_normalized = np.zeros(len(weights))
+      for parcel in range(n_parcels): # Normalize parcel level norms.
+        # Index sources belonging to parcel
+        ii = [i for i, source in enumerate(identities) if source == parcel]
+  
+        # Normalize per parcel.
+        weights_normalized[ii] = np.nan_to_num(weights[ii] * (norm(inv_mat[ii]) / 
+                                                              norm(weighted_inv[ii])))
+        
+    return weights_normalized if normalize==True else weights
+    

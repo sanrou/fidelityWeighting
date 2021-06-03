@@ -12,17 +12,18 @@ import time
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy.linalg import norm
-from fidelityOpMinimal import make_series
+from fidelityOpMinimal import make_series, source_fid_to_weights
 
 subjectsFolder = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
 forwardPattern = '\\forwardOperatorMEEG.csv'
 inversePattern = '\\inverseOperatorMEEG.csv'
 sourceIdPattern = '\\sourceIdentities_parc2018yeo7_XYZ.csv'
-weightedPattern = '\\weights_MEEG_parc2018yeo7_XYZ.csv'   # Exponent 2 and signing expected.
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_XYZ.csv'  
 
 resolutions = ['100', '200', '400', '597', '775', '942']
 n_samples = 2000 
-exponents = [0, 1, 2, 4, 8, 16, 32]
+exponents = [0, 1, 2, 3, 4]
+# exponents = [0, 1, 2, 4, 8, 16, 32]
 
 delimiter = ';'
 
@@ -150,10 +151,10 @@ def exp2weightToNew(weights, exponent, identities, unsign=False):
 
 
 sourceIdPatterns = []
-weightedPatterns = []
+sourceFidPatterns = []
 for i, resolution in enumerate(resolutions):
     sourceIdPatterns.append(sourceIdPattern.replace('XYZ', resolution))
-    weightedPatterns.append(weightedPattern.replace('XYZ', resolution))
+    sourceFidPatterns.append(sourceFidPattern.replace('XYZ', resolution))
 
 
 """ Search subject folders in main folder. """
@@ -162,7 +163,7 @@ if any('_Population' in s for s in subjects):
     subjects.remove('_Population')
 
 idArray = [ [] for _ in range(len(subjects))]        # Subjects x Resolutions in the end
-weightsArray = [ [] for _ in range(len(subjects))]   # Subjects x Resolutions
+sourceFidArray = [ [] for _ in range(len(subjects))]   # Subjects x Resolutions
 invOps = []                                             # Subjects
 forwards = []                                           # Subjects
 
@@ -189,8 +190,8 @@ for i, subject in enumerate(tqdm(subjects)):
         identities = np.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
         idArray[i].append(identities)
         
-        fileWeighted = glob.glob(subjectFolder + weightedPatterns[ii])[0]
-        weightsArray[i].append(np.genfromtxt(fileWeighted, dtype=float, delimiter=delimiter))
+        fileSourceFid = glob.glob(subjectFolder + sourceFidPatterns[ii])[0]
+        sourceFidArray[i].append(np.genfromtxt(fileSourceFid, dtype=float, delimiter=delimiter))
         
 
 maxResolution = max([int(res) for res in resolutions])
@@ -212,7 +213,8 @@ for i1, resolution1 in enumerate(resolutions):
         simulatedSourceSeries = simulatedParcelSeries[idArray[isub][i1]]
         
         for iexp, exponent in enumerate(exponents):
-          newWeights = exp2weightToNew(weightsArray[isub][i2], exponent, idArray[isub][i2], unsign=True)  
+          newWeights = source_fid_to_weights(sourceFidArray[isub][i2], exponent=exponent, normalize=True, inverse=invOps[isub], identities=idArray[isub][i2])
+          # newWeights = exp2weightToNew(sourceFidArray[isub][i2], exponent, idArray[isub][i2], unsign=True)  
           weightedInvOp = np.einsum('ij,i->ij', invOps[isub], newWeights)
           modeledSourceSeriesW = np.dot(weightedInvOp, np.dot(forwards[isub],simulatedSourceSeries))
               
@@ -222,9 +224,8 @@ for i1, resolution1 in enumerate(resolutions):
           plvArray_meth1[indicesM] = np.abs(np.real(parcel_plv(
               simulatedSourceSeries, modeledSourceSeriesW, idArray[isub][i2])))  # Method 1, original inverse op
           
-          plvArray_meth2s[indicesS], plvArray_meth2m[indicesM], _,  _ = (
-              parcel_multi_plv(simulatedSourceSeries, modeledSourceSeriesW, 
-                               idArray[isub][i1], idArray[isub][i2]))       # Method 2, original inverse op
+          plvArray_meth2s[indicesS], plvArray_meth2m[indicesM], _,  _ = (parcel_multi_plv(
+              simulatedSourceSeries, modeledSourceSeriesW, idArray[isub][i1], idArray[isub][i2]))       # Method 2, original inverse op
 
 
 # """ Temp save """
@@ -254,14 +255,15 @@ means_meth2m = nonZeroMeans(plvArray_meth2m, exponents, resolutions)    # Method
 # Set global figure parameters, including CorelDraw compatibility (.fonttype)
 import matplotlib.pylab as pylab
 params = {'legend.fontsize':'7',
-          'figure.figsize':(17, 2.5),
+         'figure.figsize':(2.0*len(exponents), 2.2),
          'axes.labelsize':'7',
          'axes.titlesize':'7',
          'xtick.labelsize':'7',
          'ytick.labelsize':'7',
          'lines.linewidth':'0.5',
          'pdf.fonttype':42,
-         'ps.fonttype':42}
+         'ps.fonttype':42,
+         'font.family':'Arial'}
 pylab.rcParams.update(params)
 
 def heat_plot(data, tickLabels, appendStrings, decimals=2):
@@ -301,9 +303,9 @@ def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2
     # Data 3D, with first dimension sub-plots.
     columns = len(data)
     
-    # Set a threshold where text should be black instead of white. 10 % of the mean.
+    # Set a threshold where text should be black instead of white. 
     middle = (vmax+vmin)/2
-    textToKT = middle * 0.15
+    textToKT = (vmax-vmin) * 0.15
     
     fig, ax = plt.subplots(1, columns)
     for i, datum in enumerate(data):
@@ -335,30 +337,28 @@ def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2
     fig.tight_layout()
     plt.show()
 
-## Method 1
-# strOrig = 'original inv'
-# strW1 = 'unsigned weighted, \n exponent2'
-# strW2 = 'unsigned weighted, \n exponent8'
-# heat_plot([means_meth1om, means_meth1w1m, means_meth1w2m], resolutions, 
-#           [strOrig + ', \n method1', strW1, strW2])
+## Mean fidelity values. 
+# Method 1
 meth1Strings = ['Mean fidelity, method1,\n exponent ' + str(exponent) for exponent in exponents]
 vmin1 = np.min(means_meth1)
 vmax1 = np.max(means_meth1)
 heat_plot_exp(means_meth1, resolutions, meth1Strings, vmin=vmin1, vmax=vmax1)
 
-## Method 2
+# Method 2
 meth2Strings = ['Mean fidelity, method2,\n exponent ' + str(exponent) for exponent in exponents]
 vmin2 = np.min(means_meth2m)
 vmax2 = np.max(means_meth2m)
 heat_plot_exp(means_meth2m, resolutions, meth2Strings, vmin=vmin2, vmax=vmax2)
 
-## Percent changes, Relative to exponent 0.
+## Relative changes, Relative to exponent 0.
+# Method 1
 meth1StringsRel = ['Relative fidelity, method1,\n exponent' + str(exponent) + '/exp0' for exponent in exponents]
 maxDiffFromOne = np.max(np.abs(means_meth1/means_meth1[0])) -1
 vmin1R = 1-maxDiffFromOne
 vmax1R = 1+maxDiffFromOne
 heat_plot_exp(means_meth1/means_meth1[0], resolutions, meth1StringsRel, vmin=vmin1R, vmax=vmax1R)
 
+# Method 2
 meth2mStringsRel = ['Relative fidelity, method2,\n exponent' + str(exponent) + '/exp0' for exponent in exponents]
 maxDiffFromOne = np.max(np.abs(means_meth2m/means_meth2m[0])) -1
 vmin2R = 1-maxDiffFromOne
@@ -366,44 +366,44 @@ vmax2R = 1+maxDiffFromOne
 heat_plot_exp(means_meth2m/means_meth2m[0], resolutions, meth2mStringsRel, vmin=vmin2R, vmax=vmax2R)
 
 
+
 ### Analyze mean fidelities of confusion matrices. 
-def heat_plot_resXexp(data, tickLabels, titleStrings, decimals=2):
-    # Data 3D, with first dimension sub-plots.
-    # tickLabels first list x-axis, second list y-axis.
-    # titleStrings the length of sub-plots.
-    columns = len(data)
+# def heat_plot_resXexp(data, tickLabels, titleStrings, decimals=2):
+#     # Data 3D, with first dimension sub-plots.
+#     # tickLabels first list x-axis, second list y-axis.
+#     # titleStrings the length of sub-plots.
+#     columns = len(data)
     
-    fig, ax = plt.subplots(1, columns)
-    for i, datum in enumerate(data):
-        ax[i].imshow(datum[::-1,:])  # Visualize Y-axis down to up.
+#     fig, ax = plt.subplots(1, columns)
+#     for i, datum in enumerate(data):
+#         ax[i].imshow(datum[::-1,:])  # Visualize Y-axis down to up.
         
-        # Show all ticks...
-        ax[i].set_xticks(np.arange(len(tickLabels[0])))
-        ax[i].set_yticks(np.arange(len(tickLabels[1])))
-        # ... and label them with the respective list entries
-        ax[i].set_xticklabels(tickLabels[0])
-        ax[i].set_yticklabels(tickLabels[1][::-1])    # Reverse y-axis labels.
+#         # Show all ticks...
+#         ax[i].set_xticks(np.arange(len(tickLabels[0])))
+#         ax[i].set_yticks(np.arange(len(tickLabels[1])))
+#         # ... and label them with the respective list entries
+#         ax[i].set_xticklabels(tickLabels[0])
+#         ax[i].set_yticklabels(tickLabels[1][::-1])    # Reverse y-axis labels.
         
-        # # Rotate the tick labels and set their alignment.
-        # plt.setp(ax[i].get_xticklabels(), rotation=0, ha="right",
-        #          rotation_mode="anchor")
+#         # # Rotate the tick labels and set their alignment.
+#         # plt.setp(ax[i].get_xticklabels(), rotation=0, ha="right",
+#         #          rotation_mode="anchor")
         
-        # Loop over datum dimensions and create text annotations.
-        for ii in range(len(tickLabels[0])):
-            for j in range(len(tickLabels[1])):
-                ax[i].text(ii, j, round(datum[-j-1, ii], decimals), ha="center", va="center",
-                        color="w", fontsize=7) # str(-j-1) +'j ii: ' + str(ii)
+#         # Loop over datum dimensions and create text annotations.
+#         for ii in range(len(tickLabels[0])):
+#             for j in range(len(tickLabels[1])):
+#                 ax[i].text(ii, j, round(datum[-j-1, ii], decimals), ha="center", va="center",
+#                         color="w", fontsize=7) # str(-j-1) +'j ii: ' + str(ii)
         
-        ax[i].set_title(titleStrings[i])
-        ax[i].set_xlabel('Resolution')
-        ax[i].set_ylabel('Exponent')
+#         ax[i].set_title(titleStrings[i])
+#         ax[i].set_xlabel('Resolution')
+#         ax[i].set_ylabel('Exponent')
     
-    fig.tight_layout()
-    plt.show()
+#     fig.tight_layout()
+#     plt.show()
 
 
 ## Mean of relative all values
-# Method 1
 def means_withTriangles(data, resolutions, exponents, verbose=True):
   """ data : exponents x resolutions x resolutions. 
       Output : 4 x resolutions, with first dimension means of whole array, upper triangle without 
@@ -436,17 +436,8 @@ def means_withTriangles(data, resolutions, exponents, verbose=True):
 means_tri_meth1_rel = means_withTriangles(means_meth1/means_meth1[0], resolutions, exponents)
 means_tri_meth2_rel = means_withTriangles(means_meth2m/means_meth2m[0], resolutions, exponents)
 
+## Means of fidelity values per exponent
+means_tri_meth1 = means_withTriangles(means_meth1, resolutions, exponents)
+means_tri_meth2 = means_withTriangles(means_meth2m, resolutions, exponents)
 
 
-
-
-a = np.arange(16).reshape(4, 4)
-iu = np.triu_indices(4)   # Upper diagonal
-a[iu]
-iu1 = np.triu_indices(4, 1)   # Upper triangle without diagonal
-a[iu1]
-
-il = np.tril_indices(4)   # Lower diagonal.
-a[il]
-
-idiag = np.diag_indices(4)  # Diagonal.

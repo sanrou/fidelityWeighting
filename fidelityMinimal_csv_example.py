@@ -18,19 +18,16 @@ import numpy as np
 
 
 """Load source identities, forward and inverse operators from csv. """
-dataPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\sub (3)'
+dataPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\sub (5)'
 
-fileSourceIdentities = glob.glob(dataPath + '\\*parc2009_200AFS.csv')[0]
-fileForwardOperator  = glob.glob(dataPath + '\\*forwardOperatorMEEG.csv')[0]
-fileInverseOperator  = glob.glob(dataPath + '\\*inverseOperatorMEEG.csv')[0]
+fileSourceIdentities = glob.glob(dataPath + '\\sourceIdentities_parc2018yeo7_200.csv')[0]
+fileForwardOperator  = glob.glob(dataPath + '\\forwardOperatorMEEG.csv')[0]
+fileInverseOperator  = glob.glob(dataPath + '\\inverseOperatorMEEG.csv')[0]
 
 delimiter = ';'
-identities = np.genfromtxt(fileSourceIdentities, 
-                                    dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
-forward = np.matrix(np.genfromtxt(fileForwardOperator, 
-                                    dtype='float', delimiter=delimiter))        # sensors x sources
-inverse = np.matrix(np.genfromtxt(fileInverseOperator, 
-                                    dtype='float', delimiter=delimiter))        # sources x sensors
+identities = np.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+forward = np.matrix(np.genfromtxt(fileForwardOperator, dtype='float', delimiter=delimiter))        # sensors x sources
+inverse = np.matrix(np.genfromtxt(fileInverseOperator, dtype='float', delimiter=delimiter))        # sources x sensors
 
 n_samples = 10000
 
@@ -40,7 +37,7 @@ idSet = [item for item in idSet if item >= 0]   # Remove negative values (should
 n_parcels = len(idSet)
 
 """ Compute weighted inverse operator. Use collapsed_inv_w for your inversing."""
-inverse_w, weights = compute_weighted_operator(forward, inverse, identities, n_samples=n_samples)
+inverse_w, weights, cplvs = compute_weighted_operator(forward, inverse, identities, n_samples=n_samples)
 collapsed_inv_w = collapse_operator(inverse_w, identities) 
 
 
