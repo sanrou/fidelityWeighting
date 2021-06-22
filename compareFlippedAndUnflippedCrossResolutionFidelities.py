@@ -16,10 +16,10 @@ exponents = [0, 1, 2, 4, 8, 16, 32]
 
 
 """ Load PLV arrays from files. """
-plvArray_meth1_u = np.load("C:\\temp\\fWeighting\\plvArrays\\exponents0to32Unsigned\\plvArray_meth1.npy")
-plvArray_meth2_u = np.load("C:\\temp\\fWeighting\\plvArrays\\exponents0to32Unsigned\\plvArray_meth2m.npy")
-plvArray_meth1_f = np.load("C:\\temp\\fWeighting\\plvArrays\\exponents0to32Signed\\plvArray_meth1.npy")
-plvArray_meth2_f = np.load("C:\\temp\\fWeighting\\plvArrays\\exponents0to32Signed\\plvArray_meth2m.npy")
+plvArray_meth1_u = np.load("C:\\temp\\fWeighting\\numpyArrays\\plvArrays\\exponents0to32Unsigned\\plvArray_meth1.npy")
+plvArray_meth2_u = np.load("C:\\temp\\fWeighting\\numpyArrays\\plvArrays\\exponents0to32Unsigned\\plvArray_meth2m.npy")
+plvArray_meth1_f = np.load("C:\\temp\\fWeighting\\numpyArrays\\plvArrays\\exponents0to32Signed\\plvArray_meth1.npy")
+plvArray_meth2_f = np.load("C:\\temp\\fWeighting\\numpyArrays\\plvArrays\\exponents0to32Signed\\plvArray_meth2m.npy")
 
 """ Get relative fidelity means differences of flipped and unflipped. """
 def nonZeroMeans(zeroBufferedData, exponents, resolutions):
@@ -57,7 +57,8 @@ params = {'legend.fontsize':'7',
          'ps.fonttype':42}
 pylab.rcParams.update(params)
 
-def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2):
+
+def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2, stripFirst0=False):
     # Data 3D, with first dimension sub-plots.
     columns = len(data)
     
@@ -80,12 +81,14 @@ def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2
         # plt.setp(ax[i].get_xticklabels(), rotation=0, ha="right",
         #          rotation_mode="anchor")
         
-        # Loop over datum dimensions and create text annotations.
+        # Loop over datum dimensions and create text annotations. Remove first character if stripFirst0=True.
         for ii in range(len(tickLabels)):
             for j in range(len(tickLabels)):
                 value = round(datum[-ii-1, j], decimals)
+                valueStr = str(value)[1:] if stripFirst0 == True else str(value)    
                 tcolor = "w" if np.abs(value-middle) > textToKT else "k"    # Set text color to white if not near middle threshold, else to black.
-                ax[i].text(j, ii, value, ha="center", va="center", color=tcolor, fontsize=7)
+                ax[i].text(j, ii, valueStr, ha="center", va="center", 
+                        color=tcolor, fontsize=7)
         
         ax[i].set_title(titleStrings[i])
         ax[i].set_xlabel('Modeling resolution')
@@ -94,17 +97,18 @@ def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2
     fig.tight_layout()
     plt.show()
 
-# Method 1
-maxDiffFromOne = np.max(np.abs([means_meth1_r, means_meth2_r])) -1
-vminR = 1-maxDiffFromOne
-vmaxR = 1+maxDiffFromOne
 
-meth1Strings = ['Unflipped/Flipped fidelity,\n method1, exponent ' + str(exponent) for exponent in exponents]
-heat_plot_exp(means_meth1_r, resolutions, meth1Strings, vmin=vminR, vmax=vmaxR)
+# Method 1
+maxDiffFromOne = np.max(np.abs([means_meth1_r, means_meth2_r])*100-100)
+vminR = -maxDiffFromOne
+vmaxR = maxDiffFromOne
+
+meth1Strings = ['Unflipped/Flipped fidelity dif,\nmethod1 (%), exponent ' + str(exponent) for exponent in exponents]
+heat_plot_exp(means_meth1_r*100-100, resolutions, meth1Strings, vmin=vminR, vmax=vmaxR, decimals=1)
 
 # Method 2
-meth2Strings = ['Unflipped/Flipped fidelity,\n method2, exponent ' + str(exponent) for exponent in exponents]
-heat_plot_exp(means_meth2_r, resolutions, meth2Strings, vmin=vminR, vmax=vmaxR)
+meth2Strings = ['Unflipped/Flipped fidelity dif,\nmethod2 (%), exponent ' + str(exponent) for exponent in exponents]
+heat_plot_exp(means_meth2_r*100-100, resolutions, meth2Strings, vmin=vminR, vmax=vmaxR, decimals=1)
 
 
 

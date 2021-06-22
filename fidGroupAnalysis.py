@@ -19,9 +19,9 @@ from fidelityOpMinimal import fidelity_estimation, make_series_paired, source_fi
 """Load source identities, forward and inverse operators from csv. """
 subjectsPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
 
-sourceIdPattern = '\\sourceIdentities_parc2018yeo7_200.csv'
-sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_200.csv'
-savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaefer200 "
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_100.csv'
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_100.csv'
+savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaefer100 "
 forwardPattern  = '\\forwardOperatorMEEG.csv'
 inversePattern  = '\\inverseOperatorMEEG.csv'
     
@@ -220,7 +220,7 @@ fidOStdSorted = np.std(fidOArraySorted, axis=0)
 import matplotlib.pylab as pylab
 if tightLayout == True:
   params = {'legend.fontsize':'7',
-         'figure.figsize':(1.8, 1),
+         'figure.figsize':(1.6, 1),
          'axes.labelsize':'7',
          'axes.titlesize':'7',
          'xtick.labelsize':'7',
@@ -257,12 +257,12 @@ fig, ax = plt.subplots(1,1)
 
 # Weighted
 ax.plot(meansWF, color='black', linestyle='-', 
-        label='Weighted fidelity, mean: ' + "{:.3f}".format(np.mean(fidWAverage)))
+        label='Weighted fidelity,\nmean: ' + "{:.3f}".format(np.mean(fidWAverage)))
 # Original
-ax.plot(meansOF, color='black', linestyle='--', 
-        label='Original fidelity, mean: ' + "{:.3f}".format(np.mean(fidOAverage)))
+ax.plot(meansOF, color='black', linestyle=':', linewidth=1, 
+        label='Original fidelity,\nmean: ' + "{:.3f}".format(np.mean(fidOAverage)))
 
-legend = ax.legend(loc='best', shadow=False)
+legend = ax.legend(loc='lower right', shadow=False)
 legend.get_frame()
 
 # ax.fill_between(parcelList, np.ravel(meansWF-stdsWF), np.ravel(meansWF+stdsWF), color='black', alpha=0.5)
@@ -271,10 +271,14 @@ ax.set_ylabel('Parcel fidelity')
 ax.set_xlabel('Parcels, sorted by original')
 
 ax.spines['top'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
-ax.spines['left'].set_visible(False)
+ax.spines['bottom'].set_visible(True)
+ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
+# update the view limits and ticks to sensible % values
+locs, labels = plt.yticks()
+plt.yticks(np.array([0., 0.2, 0.4, 0.6, 0.8]))
+ax.set_ylim(0, 0.9)      # Preset y-limits
 plt.tight_layout(pad=0.1)
 plt.show()
 if savePDFs == True:
@@ -293,10 +297,10 @@ fig, ax = plt.subplots(1,1)
 
 # Weighted
 ax.plot(meansWFS, color='black', linestyle='-', 
-        label='Weighted fidelity, mean: ' + "{:.3f}".format(np.mean(meansWFS['value'])))
+        label='Weighted fidelity,\nmean: ' + "{:.3f}".format(np.mean(meansWFS['value'])))
 # Original
-ax.plot(meansOFS, color='black', linestyle='--', 
-        label='Original fidelity, mean: ' + "{:.3f}".format(np.mean(meansOFS['value'])))
+ax.plot(meansOFS, color='black', linestyle=':', linewidth=1, 
+        label='Original fidelity,\nmean: ' + "{:.3f}".format(np.mean(meansOFS['value'])))
 
 legend = ax.legend(loc='best', shadow=False)
 legend.get_frame()
@@ -307,8 +311,8 @@ ax.set_ylabel('Fidelity')
 ax.set_xlabel('Parcels, mean(sort([fidelity]))')
 
 ax.spines['top'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
-ax.spines['left'].set_visible(False)
+ax.spines['bottom'].set_visible(True)
+ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
@@ -328,11 +332,11 @@ fig, ax = plt.subplots(1,1)
 
 # Weighted
 ax.plot(meansW.iloc[:,0], meansW.iloc[:,1], color='black', linestyle='-', 
-        label='Weighted, TPR at FPR 0.15: ' 
+        label='Weighted, TPR at\nFPR 0.15: ' 
         + "{:.3f}".format(tpWAverage[find_nearest_index(binArray, 0.15)]))
 # Original
-ax.plot(meansO.iloc[:,0], meansO.iloc[:,1], color='black', linestyle='--', 
-        label='Original, TPR at FPR 0.15: ' 
+ax.plot(meansO.iloc[:,0], meansO.iloc[:,1], color='black', linestyle=':', linewidth=1, 
+        label='Original, TPR at\nFPR 0.15: ' 
         + "{:.3f}".format(tpOAverage[find_nearest_index(binArray, 0.15)]))
 
 legend = ax.legend(loc='right', shadow=False)
@@ -344,8 +348,8 @@ ax.set_ylabel('True positive rate')
 ax.set_xlabel('False positive rate')
 
 ax.spines['top'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
-ax.spines['left'].set_visible(False)
+ax.spines['bottom'].set_visible(True)
+ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
@@ -357,7 +361,7 @@ if savePDFs == True:
 
 
 
-""" Make and plot relative benefits from weighting to fidelity. """
+""" Make and plot relative fidelity benefits from weighting to fidelity. """
 fidRArray = fidWArray / fidOArray
 meansR = np.average(fidRArray, axis=0)
 stdsR = np.std(fidRArray, axis=0)
@@ -370,7 +374,7 @@ stdsR = 100* stdsR[sortArray]
 fig, ax = plt.subplots(1,1)
 
 ax.plot(meansR, color='black', linestyle='-', 
-        label='Relative fidelity, mean: ' + "{:.3f}".format(np.mean(meansR)))
+        label='Relative fidelity,\nmean: ' + "{:.3f}".format(np.mean(meansR)))
 ax.plot(100*np.ones(n_parcels, dtype=float), color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %.
 
 legend = ax.legend(loc='best', shadow=False)
@@ -382,12 +386,12 @@ ax.set_xlabel('Parcels, sorted by benefit')
 
 
 ax.spines['top'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
-ax.spines['left'].set_visible(False)
+ax.spines['bottom'].set_visible(True)
+ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
-plt.ylim(50, 200)
+plt.ylim(90, 150)
 plt.show()
 
 if savePDFs == True:
@@ -406,7 +410,7 @@ stdsRR = pd.DataFrame(np.array([binArray[1:-1], stdsRR]).T, columns=['FP bins','
 fig, ax = plt.subplots(1,1)
 
 ax.plot(meansRR.iloc[:,0], meansRR.iloc[:,1], color='black', linestyle='-', 
-        label='Relative TPR at FPR 0.15: ' 
+        label='Relative TPR at\nFPR 0.15: ' 
         + "{:.3f}".format(meansRR.iloc[:,1][find_nearest_index(binArray[1:-1], 0.15)]))
 ax.plot([0, 1], [100, 100], color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %. [X X] [Y, Y]
 
@@ -419,12 +423,12 @@ ax.set_ylabel('Relative TPR (%)')
 ax.set_xlabel('False positive rate')
 
 ax.spines['top'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
-ax.spines['left'].set_visible(False)
+ax.spines['bottom'].set_visible(True)
+ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
-plt.ylim(50, 150)
+plt.ylim(90, 150)
 plt.show()
 
 if savePDFs == True:
@@ -433,10 +437,10 @@ if savePDFs == True:
 
 
 
-""" Scatter plot weighted and original fidelities. """
+""" Scatter plot weighted and original fidelities per parcel. """
 fig, ax = plt.subplots(1,1)
 ax.scatter(fidOAverage, fidWAverage, c='black', alpha=0.5, s=10)  ## X, Y.
-ax.plot([0,1], [0,1], color='black')
+ax.plot([0,1], [0,1], color='black')    # Draw diagnonal line.
 # ax.set_title('PLV')
 ax.set_xlabel('PLV, Original inv op')
 ax.set_ylabel('PLV, Weighted inv op')
@@ -445,15 +449,15 @@ plt.ylim(0, 1)
 plt.xlim(0, 1)
 
 ax.spines['top'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
-ax.spines['left'].set_visible(False)
+ax.spines['bottom'].set_visible(True)
+ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
 plt.show()
 
 if savePDFs == True:
-  fig.savefig(savePathBase + 'Fidelities Orig x Weighted scatter.pdf', format='pdf')
+  fig.savefig(savePathBase + 'Fidelities Orig x Weighted scatter by parcel.pdf', format='pdf')
 
 
 
@@ -470,15 +474,15 @@ plt.ylim(0, 1)
 plt.xlim(0, 1)
 
 ax.spines['top'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
-ax.spines['left'].set_visible(False)
+ax.spines['bottom'].set_visible(True)
+ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
 plt.show()
 
 if savePDFs == True:
-  fig.savefig(savePathBase + 'True positive rates Orig x Weighted scatter.pdf', format='pdf')
+  fig.savefig(savePathBase + 'True positive rates Orig x Weighted scatter by parcel.pdf', format='pdf')
 
 
 

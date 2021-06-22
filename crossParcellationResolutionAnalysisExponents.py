@@ -22,8 +22,8 @@ sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_XYZ.csv'
 
 resolutions = ['100', '200', '400', '597', '775', '942']
 n_samples = 2000 
-exponents = [0, 1, 2, 3, 4]
-# exponents = [0, 1, 2, 4, 8, 16, 32]
+# exponents = [0, 1, 2, 3, 4]
+exponents = [0, 1, 2, 4, 8, 16, 32]
 
 delimiter = ';'
 
@@ -299,7 +299,7 @@ def heat_plot(data, tickLabels, appendStrings, decimals=2):
     plt.show()
 
 
-def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2):
+def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2, stripFirst0=False):
     # Data 3D, with first dimension sub-plots.
     columns = len(data)
     
@@ -322,12 +322,13 @@ def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2
         # plt.setp(ax[i].get_xticklabels(), rotation=0, ha="right",
         #          rotation_mode="anchor")
         
-        # Loop over datum dimensions and create text annotations.
+        # Loop over datum dimensions and create text annotations. Remove first character if stripFirst0=True.
         for ii in range(len(tickLabels)):
             for j in range(len(tickLabels)):
                 value = round(datum[-ii-1, j], decimals)
+                valueStr = str(value)[1:] if stripFirst0 == True else str(value)    
                 tcolor = "w" if np.abs(value-middle) > textToKT else "k"    # Set text color to white if not near middle threshold, else to black.
-                ax[i].text(j, ii, value, ha="center", va="center", 
+                ax[i].text(j, ii, valueStr, ha="center", va="center", 
                         color=tcolor, fontsize=7)
         
         ax[i].set_title(titleStrings[i])
@@ -342,65 +343,30 @@ def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2
 meth1Strings = ['Mean fidelity, method1,\n exponent ' + str(exponent) for exponent in exponents]
 vmin1 = np.min(means_meth1)
 vmax1 = np.max(means_meth1)
-heat_plot_exp(means_meth1, resolutions, meth1Strings, vmin=vmin1, vmax=vmax1)
+heat_plot_exp(means_meth1, resolutions, meth1Strings, vmin=vmin1, vmax=vmax1, stripFirst0=True)
 
 # Method 2
 meth2Strings = ['Mean fidelity, method2,\n exponent ' + str(exponent) for exponent in exponents]
 vmin2 = np.min(means_meth2m)
 vmax2 = np.max(means_meth2m)
-heat_plot_exp(means_meth2m, resolutions, meth2Strings, vmin=vmin2, vmax=vmax2)
+heat_plot_exp(means_meth2m, resolutions, meth2Strings, vmin=vmin2, vmax=vmax2, stripFirst0=True)
 
-## Relative changes, Relative to exponent 0.
+## Relative changes in % change, Relative to exponent 0.
 # Method 1
-meth1StringsRel = ['Relative fidelity, method1,\n exponent' + str(exponent) + '/exp0' for exponent in exponents]
-maxDiffFromOne = np.max(np.abs(means_meth1/means_meth1[0])) -1
-vmin1R = 1-maxDiffFromOne
-vmax1R = 1+maxDiffFromOne
-heat_plot_exp(means_meth1/means_meth1[0], resolutions, meth1StringsRel, vmin=vmin1R, vmax=vmax1R)
+meth1StringsRel = ['Fidelity gain (%), method1,\n exponent' + str(exponent) + '/exp0' for exponent in exponents]
+maxDiffFromOne = np.max(np.abs(means_meth1/means_meth1[0]*100-100))
+vmin1R = -maxDiffFromOne
+vmax1R = maxDiffFromOne
+heat_plot_exp(means_meth1/means_meth1[0]*100-100, resolutions, meth1StringsRel, vmin=vmin1R, vmax=vmax1R, decimals=1)
 
 # Method 2
 meth2mStringsRel = ['Relative fidelity, method2,\n exponent' + str(exponent) + '/exp0' for exponent in exponents]
-maxDiffFromOne = np.max(np.abs(means_meth2m/means_meth2m[0])) -1
-vmin2R = 1-maxDiffFromOne
-vmax2R = 1+maxDiffFromOne
-heat_plot_exp(means_meth2m/means_meth2m[0], resolutions, meth2mStringsRel, vmin=vmin2R, vmax=vmax2R)
+maxDiffFromOne = np.max(np.abs(means_meth2m/means_meth2m[0]*100-100))
+vmin2R = -maxDiffFromOne
+vmax2R = maxDiffFromOne
+heat_plot_exp(means_meth2m/means_meth2m[0]*100-100, resolutions, meth2mStringsRel, vmin=vmin2R, vmax=vmax2R, decimals=1)
 
 
-
-### Analyze mean fidelities of confusion matrices. 
-# def heat_plot_resXexp(data, tickLabels, titleStrings, decimals=2):
-#     # Data 3D, with first dimension sub-plots.
-#     # tickLabels first list x-axis, second list y-axis.
-#     # titleStrings the length of sub-plots.
-#     columns = len(data)
-    
-#     fig, ax = plt.subplots(1, columns)
-#     for i, datum in enumerate(data):
-#         ax[i].imshow(datum[::-1,:])  # Visualize Y-axis down to up.
-        
-#         # Show all ticks...
-#         ax[i].set_xticks(np.arange(len(tickLabels[0])))
-#         ax[i].set_yticks(np.arange(len(tickLabels[1])))
-#         # ... and label them with the respective list entries
-#         ax[i].set_xticklabels(tickLabels[0])
-#         ax[i].set_yticklabels(tickLabels[1][::-1])    # Reverse y-axis labels.
-        
-#         # # Rotate the tick labels and set their alignment.
-#         # plt.setp(ax[i].get_xticklabels(), rotation=0, ha="right",
-#         #          rotation_mode="anchor")
-        
-#         # Loop over datum dimensions and create text annotations.
-#         for ii in range(len(tickLabels[0])):
-#             for j in range(len(tickLabels[1])):
-#                 ax[i].text(ii, j, round(datum[-j-1, ii], decimals), ha="center", va="center",
-#                         color="w", fontsize=7) # str(-j-1) +'j ii: ' + str(ii)
-        
-#         ax[i].set_title(titleStrings[i])
-#         ax[i].set_xlabel('Resolution')
-#         ax[i].set_ylabel('Exponent')
-    
-#     fig.tight_layout()
-#     plt.show()
 
 
 ## Mean of relative all values

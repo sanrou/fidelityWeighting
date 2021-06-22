@@ -20,7 +20,7 @@ from random import shuffle
 
 
 
-def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=4):
+def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=2):
     """Function for computing a fidelity-weighted inverse operator.
        Note that only good channels are expected. Parcel level flips are applied.
        
@@ -150,7 +150,7 @@ def plv(x, y, source_identities):
 
 
 
-def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=4):
+def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=2):
     """Function for computing the weights of the weighted inverse operator.
     source_identities : ndarray [sources]
         Expected ids for parcels are 0 to n-1, where n is number of parcels, 
@@ -378,7 +378,7 @@ def collapse_operator(operator, identities, op_type='inverse'):
 
 
 
-def source_fid_to_weights(source_fidelities, exponent=4, normalize=True, inverse=np.asarray([]), identities=np.asarray([]), flips=False):
+def source_fid_to_weights(source_fidelities, exponent=2, normalize=True, inverse=np.asarray([]), identities=np.asarray([]), flips=False):
     """
     Parameters
     ----------

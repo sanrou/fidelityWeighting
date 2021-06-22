@@ -7,8 +7,6 @@ Phase visualization for fidelity weighting.
 
 
 ### Phase visualization
-# from fidelityOpMinimal import (compute_weighted_operator, fidelity_estimation,
-                               # make_series_paired, collapse_operator)
 import glob
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,7 +16,8 @@ from scipy import signal
 
 
 """Load source identities, forward and inverse operators from csv. """
-dataPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\sub (5)'
+dataPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\sub (5)'
+# dataPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\sub (5)'
 
 fileSourceIdentities = glob.glob(dataPath + '\\*parc68.csv')[0]
 fileForwardOperator  = glob.glob(dataPath + '\\*forwardOperatorMEEG.csv')[0]
@@ -36,6 +35,7 @@ inverse = np.matrix(np.genfromtxt(fileInverseOperator,
 n_samples = 200
 n_cut_samples = 20
 widths = range(5,6)
+tightLayout = False
 
 """ Get number of parcels. """
 idSet = set(identities)                         # Get unique IDs
@@ -43,6 +43,7 @@ idSet = [item for item in idSet if item >= 0]   # Remove negative values (should
 n_parcels = len(idSet)
 
 """ Generate parcel signal """
+np.random.seed(41)
 s = randn(n_parcels, n_samples+2*n_cut_samples)
 
 for i in np.arange(0, n_parcels):
@@ -71,12 +72,26 @@ sourceSeries = sourceSeries / np.max(sourceSeries, axis=1)
 # sources = [985, 1255, 1541]   # Parcel0
 parcels = [14, 14, 14] # Same parcel to use on the phase plot ring. 
 sources = [386, 473, 852]  # Parcel14. 386 ~0.85 PLV. 473 ~0.65 PLV, flip. 852 ~0.26 PLV.
-colors = ['black', 'dimgray', 'brown']
+# colors = ['black', 'dimgray', 'brown']
+colors = ['black', 'black', 'black']
 
 # Set global figure parameters, including CorelDraw compatibility (.fonttype)
 import matplotlib.pylab as pylab
-params = {'legend.fontsize':'7',
-          'figure.figsize':(11, 3),
+if tightLayout == True:
+  params = {'legend.fontsize':'7',
+         'figure.figsize':(4, 1.3),
+         'axes.labelsize':'7',
+         'axes.titlesize':'7',
+         'xtick.labelsize':'7',
+         'ytick.labelsize':'7',
+         'lines.linewidth':'0.5',
+         'pdf.fonttype':42,
+         'ps.fonttype':42,
+         'font.sans-serif':'Arial',
+         'lines.markersize':3}
+else:
+  params = {'legend.fontsize':'7',
+         'figure.figsize':(11, 3),
          'axes.labelsize':'14',
          'axes.titlesize':'14',
          'xtick.labelsize':'14',
@@ -84,7 +99,8 @@ params = {'legend.fontsize':'7',
          'lines.linewidth':'0.5',
          'pdf.fonttype':42,
          'ps.fonttype':42,
-         'font.sans-serif':'Arial'}
+         'font.sans-serif':'Arial',
+         'lines.markersize':6}
 pylab.rcParams.update(params)
 
 

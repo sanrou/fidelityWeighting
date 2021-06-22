@@ -18,11 +18,12 @@ from fidelityOpMinimal import _compute_weights
 
 
 """ Set subject directory and file patterns. """
-dataPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\sub (5)'
+dataPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\sub (5)'
+# dataPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\sub (5)'
 
-fileSourceIdentities = glob.glob(dataPath + '\\*parc68.csv')[0]
-fileForwardOperator  = glob.glob(dataPath + '\\*forwardOperatorMEEG.csv')[0]
-fileInverseOperator  = glob.glob(dataPath + '\\*inverseOperatorMEEG.csv')[0]
+fileSourceIdentities = glob.glob(dataPath + '\\sourceIdentities_parc68.csv')[0]
+fileForwardOperator  = glob.glob(dataPath + '\\forwardOperatorMEEG.csv')[0]
+fileInverseOperator  = glob.glob(dataPath + '\\inverseOperatorMEEG.csv')[0]
 
 """ Settings. """
 delimiter = ';'
@@ -44,6 +45,7 @@ idSet = [item for item in idSet if item >= 0]   # Remove negative values (should
 n_parcels = len(idSet)
 
 """ Generate signals for parcels. """
+np.random.seed(0)
 s = randn(n_parcels, n_samples+2*n_cut_samples)
 
 for i in np.arange(0, n_parcels):
@@ -66,7 +68,7 @@ sourceSeries = np.dot(inverse, np.dot(forward, sourceSeries))
 
 """ Compute weighted inverse operator. Time series from complex to real.
     Make source series using the weighted operator. """
-inverse_w, weights = _compute_weights(sourceSeries, parcelSeries, identities, inverse)
+inverse_w, weights, cplvs = _compute_weights(sourceSeries, parcelSeries, identities, inverse)
 parcelSeries = np.real(parcelSeries)
 sourceSeries = np.real(sourceSeries)
 sourceSeries_w = np.dot(inverse_w, np.dot(forward, sourceSeries))
@@ -149,7 +151,6 @@ colors = [['royalblue', 'aqua', 'dodgerblue', 'cadetblue', 'turquoise'],
           ['orchid', 'crimson', 'hotpink', 'plum', 'deeppink']]
 
 
-
 """ Plot time series of selections. Figure 1. """
 for ii, parcel in enumerate(selections):
     ## Source series.
@@ -160,9 +161,9 @@ for ii, parcel in enumerate(selections):
         ax.plot(np.ravel(np.real(sourceSeries_n[source, timeStart:timeEnd])) -2*i, 
                 color=colors[ii][i], linestyle='-', label='Original, ' + str(source))
         ax.plot(np.ravel(np.real(sourceSeries_nw[source, timeStart:timeEnd])) -2*i, 
-                color=colors[ii][i], linestyle='--', label='Weighted, ' + str(source))
+                color=colors[ii][i], linestyle=':', linewidth=1, label='Weighted, ' + str(source))
     
-    ax.set_ylabel('Source series')
+    ax.set_ylabel('Modeled source series')
     ax.set_xlabel('Time, samples, parcel ' + str(parcels[ii]))
     
     ax.spines['top'].set_visible(False)
@@ -187,7 +188,7 @@ for ii, parcel in enumerate(selections):
             color='dimgray', linestyle='-', label='Estimated, Original inv op')
     # Weighted
     ax.plot(np.ravel(np.real(parcelSeries_new[parcels[ii], timeStart:timeEnd]))-2, 
-            color='dimgray', linestyle='--', label='Estimated, Weighted inv op')
+            color='black', linestyle=':', linewidth=1, label='Estimated, Weighted inv op')
     
     ax.set_ylabel('Parcel series')
     ax.set_xlabel('Time, samples, parcel ' + str(parcels[ii]))
@@ -252,7 +253,7 @@ for ii, parcel in enumerate(selections):
         ax.plot(np.ravel(np.real(parcelSeries_n[parcels[ii], timeStart:timeEnd]))-2*i, 
                 color=colors[ii][i], linestyle='-', label='Simulated, parcel' + str(parcels[ii]))
         ax.plot(np.ravel(np.real(sourceSeries_n[source, timeStart:timeEnd]))-2*i, 
-                color=colors[ii][i], linestyle='--', label='Orig inv op, source' + str(source))
+                color=colors[ii][i], linestyle=':', linewidth=1,  label='Orig inv op, source' + str(source))
         
     ax.set_ylabel('Source series')
     ax.set_xlabel('Time, samples, parcel ' + str(parcels[ii]))
@@ -274,7 +275,7 @@ for ii, parcel in enumerate(selections):
         ax.plot(np.ravel(np.real(parcelSeries_n[parcels[ii], timeStart:timeEnd]))-2*i, 
                 color=colors[ii][i], linestyle='-', label='Simulated, parcel' + str(parcels[ii]))
         ax.plot(np.ravel(np.real(sourceSeries_nw[source, timeStart:timeEnd])) -2*i, 
-                color=colors[ii][i], linestyle='--', label='Weighted inv op, source' + str(source))
+                color=colors[ii][i], linestyle=':', linewidth=1, label='Weighted inv op, source' + str(source))
     
     ax.set_ylabel('Source series')
     ax.set_xlabel('Time, samples, parcel ' + str(parcels[ii]))
@@ -296,12 +297,12 @@ for ii, parcel in enumerate(selections):
     ax.plot(np.ravel(np.real(parcelSeries_n[parcels[ii], timeStart:timeEnd]))-0, 
             color='black', linestyle='-', label='Simulated, parcel' + str(parcels[ii]))
     ax.plot(sumArray_n[ii,timeStart:timeEnd]-0, 
-            color='black', linestyle='--', label='Estimated, Sum Orig' + str(parcels[ii]))
+            color='black', linestyle=':', linewidth=1, label='Estimated, Sum Orig' + str(parcels[ii]))
     # Ground truth and weighted inv op
     ax.plot(np.ravel(np.real(parcelSeries_n[parcels[ii], timeStart:timeEnd]))-2, 
             color='black', linestyle='-', label='Simulated, parcel' + str(parcels[ii]))
     ax.plot(sumArray_w[ii,timeStart:timeEnd]-2, 
-            color='dimgray', linestyle='--', label='Estimated, Sum Weight' + str(parcels[ii]))
+            color='dimgray', linestyle=':', linewidth=1, label='Estimated, Sum Weight' + str(parcels[ii]))
     
     ax.set_ylabel('Source sum series')
     ax.set_xlabel('Time, samples, parcel ' + str(parcels[ii]))

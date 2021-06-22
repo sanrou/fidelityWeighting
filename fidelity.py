@@ -116,7 +116,7 @@ def parcel_plv(x, y, source_identities):
 
 
 
-def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=4):
+def _compute_weights(source_series, parcel_series, source_identities, inv_mat, exponent=2):
     """Function for computing the weights of the weighted inverse operator."""
     
     cplv_array = plv(source_series, parcel_series, source_identities)
@@ -258,7 +258,7 @@ def _extract_operator_data(fwd, inv_prep, labels, method='dSPM'):
 
 
 
-def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=4):
+def compute_weighted_operator(fwd_mat, inv_mat, source_identities, n_samples=10000, parcel_flip=False, exponent=2):
     """Function for computing a fidelity-weighted inverse operator.
        Called by weight_inverse_operator. Parcel level flips are applied.
        
@@ -607,7 +607,7 @@ def collapse_operator(operator, identities, op_type='inverse'):
 
 
 
-def source_fid_to_weights(source_fidelities, exponent=4, normalize=True, inv_mat=np.asarray([]), identities=np.asarray([]), flips=False):
+def source_fid_to_weights(source_fidelities, exponent=2, normalize=True, inv_mat=np.asarray([]), identities=np.asarray([]), flips=False):
     """
     Parameters
     ----------

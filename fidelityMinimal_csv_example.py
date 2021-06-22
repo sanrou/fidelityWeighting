@@ -20,7 +20,7 @@ import numpy as np
 """Load source identities, forward and inverse operators from csv. """
 dataPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\sub (5)'
 
-fileSourceIdentities = glob.glob(dataPath + '\\sourceIdentities_parc2018yeo7_200.csv')[0]
+fileSourceIdentities = glob.glob(dataPath + '\\sourceIdentities_parc2018yeo7_100.csv')[0]
 fileForwardOperator  = glob.glob(dataPath + '\\forwardOperatorMEEG.csv')[0]
 fileInverseOperator  = glob.glob(dataPath + '\\inverseOperatorMEEG.csv')[0]
 
@@ -48,7 +48,7 @@ fidelityO, cp_PLVO = fidelity_estimation(forward, inverse, identities)
 
 """ Create plots. """
 fig, ax = plt.subplots()
-ax.plot(np.sort(fidelity), color='k', linestyle='--', label='Weighted fidelity, mean: ' + np.str(np.mean(fidelity)))
+ax.plot(np.sort(fidelity), color='k', linestyle=':', linewidth=1, label='Weighted fidelity, mean: ' + np.str(np.mean(fidelity)))
 ax.plot(np.sort(fidelityO), color='k', linestyle='-', label='Original fidelity, mean: ' + np.str(np.mean(fidelityO)))
 
 legend = ax.legend(loc='upper center', shadow=False, fontsize='12')
@@ -131,7 +131,7 @@ def find_nearest_index(array, value):
     return idx
 
 fig, ax = plt.subplots()
-ax.plot(fpRateW, tpRateW, color='k', linestyle='--', label='Weighted, TPR at FPR 0.15: '
+ax.plot(fpRateW, tpRateW, color='k', linestyle=':', linewidth=1, label='Weighted, TPR at FPR 0.15: '
         + np.str(tpRateW[find_nearest_index(fpRateW, 0.15)]))
 ax.plot(fpRateO, tpRateO, color='k', linestyle='-', label='Original, TPR at FPR 0.15: ' 
         + np.str(tpRateO[find_nearest_index(fpRateO, 0.15)]))
