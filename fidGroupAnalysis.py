@@ -165,11 +165,14 @@ for run_i, subject in enumerate(tqdm(subjects)):
         parcelPLVn = parcelSeriesPairs[:,t] / np.abs(parcelSeriesPairs[:,t]) 
         cp_PLVU += np.outer(parcelPLVn, np.conjugate(parcelPLVn)) /n_samples
     
-    
-    # Get truth matrix from the unmodeled series.
     cp_PLVUim = np.abs(np.imag(cp_PLVU))
-    truthMatrix = cp_PLVUim > 0.5
     
+    # Build truth matrix from pairs.
+    truthMatrix = np.zeros((n_parcels, n_parcels), dtype=bool)
+    for i, pair in enumerate(pairs):
+      truthMatrix[pair[0], pair[1]] = True
+      truthMatrix[pair[1], pair[0]] = True
+
     # Delete diagonal from truth and estimated matrices
     truthMatrix = delete_diagonal(truthMatrix)
     cp_PLVPW = delete_diagonal(cp_PLVPW)

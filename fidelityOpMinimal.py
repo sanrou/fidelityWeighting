@@ -16,7 +16,7 @@ from scipy.ndimage.interpolation import shift
 import numpy as np
 from numpy.linalg import norm
 from numpy.random import randn
-from random import shuffle
+import random
 
 
 
@@ -269,7 +269,7 @@ def fidelity_estimation(fwd, inv, source_identities, n_samples = 20000, parcel_s
 
 
 
-def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6), time_shift=3):
+def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6), time_shift=3, seed=None):
     """Function for generating oscillating parcel signals with each parcel with
     degree of one.
     
@@ -286,6 +286,8 @@ def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)
         Width to use for the wavelet transform.
     time_shift : int
         Shift in samples.
+    seed : None/int
+        Seed time series if value is given.
         
     Output arguments:
     =================
@@ -304,10 +306,12 @@ def make_series_paired(n_parcels, n_samples, n_cut_samples=40, widths=range(5,6)
     time_shift = (0, time_shift)  # Do not shift across parcels, only time.
     
     pairs = list(range(0, n_parcels-remainder))
-    shuffle(pairs)
+    if seed != None: random.seed(seed)
+    random.shuffle(pairs)
     pairs = np.reshape(pairs, (n_parcels_half, 2))
     
     # Do signals for half of the parcels. Time shift the other half from the first half.
+    if seed != None: np.random.seed(seed)
     s = randn(n_parcels_half+remainder, n_samples*decim_factor+2*n_cut_samples)
     
     for i in np.arange(0, n_parcels_half+remainder):

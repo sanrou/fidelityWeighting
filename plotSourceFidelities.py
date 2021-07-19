@@ -225,7 +225,7 @@ if savePDFs == True:
 
 
 ### Per subject densities
-## Make color array by original mean source fidelity
+## Make color array by mean source fidelity
 meanSFids = np.zeros((len(fidelities)), dtype=float)
 for i, fids in enumerate(fidelities):
   meanSFids[i] = np.mean(fids)
@@ -280,7 +280,7 @@ plt.yticks(np.array([0., 0.05, 0.1, 0.15, 0.2, 0.25, 0.3])*cmulPer)
 # ax.set_ylim(0, 0.2*cmulPer)      # Preset y-limits
 
 ax.set_ylabel('n sources (%)')
-ax.set_xlabel('Source fidelity, all sources')
+ax.set_xlabel('Source fidelity')
 # plt.ylim(0, 3)  # Histogram y values are pretty wacky with density=True.
 plt.xticks(np.array([0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8, 0.9]))
 

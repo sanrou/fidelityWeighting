@@ -27,6 +27,8 @@ exponents = [0, 1, 2, 4, 8, 16, 32]
 
 delimiter = ';'
 
+saveArrays = False  # Saves plv arrays if set to true as .npy files to the active folder.
+
 
 def parcel_plv(x, y, source_identities):
     """ Function for computing the complex phase-locking value.
@@ -213,7 +215,8 @@ for i1, resolution1 in enumerate(resolutions):
         simulatedSourceSeries = simulatedParcelSeries[idArray[isub][i1]]
         
         for iexp, exponent in enumerate(exponents):
-          newWeights = source_fid_to_weights(sourceFidArray[isub][i2], exponent=exponent, normalize=True, inverse=invOps[isub], identities=idArray[isub][i2])
+          newWeights = source_fid_to_weights(sourceFidArray[isub][i2], exponent=exponent, 
+                                normalize=True, inverse=invOps[isub], identities=idArray[isub][i2])
           # newWeights = exp2weightToNew(sourceFidArray[isub][i2], exponent, idArray[isub][i2], unsign=True)  
           weightedInvOp = np.einsum('ij,i->ij', invOps[isub], newWeights)
           modeledSourceSeriesW = np.dot(weightedInvOp, np.dot(forwards[isub],simulatedSourceSeries))
@@ -228,10 +231,11 @@ for i1, resolution1 in enumerate(resolutions):
               simulatedSourceSeries, modeledSourceSeriesW, idArray[isub][i1], idArray[isub][i2]))       # Method 2, original inverse op
 
 
-# """ Temp save """
-np.save('plvArray_meth1', plvArray_meth1)
-np.save('plvArray_meth2s', plvArray_meth2s)
-np.save('plvArray_meth2m', plvArray_meth2m)
+""" Save """
+if saveArrays == True:
+  np.save('plvArray_meth1', plvArray_meth1)
+  np.save('plvArray_meth2s', plvArray_meth2s)
+  np.save('plvArray_meth2m', plvArray_meth2m)
 
 """ Analyze plvArrays. """
 def nonZeroMeans(zeroBufferedData, exponents, resolutions):
@@ -265,38 +269,6 @@ params = {'legend.fontsize':'7',
          'ps.fonttype':42,
          'font.family':'Arial'}
 pylab.rcParams.update(params)
-
-def heat_plot(data, tickLabels, appendStrings, decimals=2):
-    # Data 3D, with first dimension sub-plots.
-    columns = len(data)
-    
-    fig, ax = plt.subplots(1, columns)
-    for i, datum in enumerate(data):
-        ax[i].imshow(datum[::-1,:])  # Visualize Y-axis down to up.
-        
-        # Show all ticks...
-        ax[i].set_xticks(np.arange(len(tickLabels)))
-        ax[i].set_yticks(np.arange(len(tickLabels)))
-        # ... and label them with the respective list entries
-        ax[i].set_xticklabels(tickLabels)
-        ax[i].set_yticklabels(tickLabels[::-1])    # Reverse y-axis labels.
-        
-        # # Rotate the tick labels and set their alignment.
-        # plt.setp(ax[i].get_xticklabels(), rotation=0, ha="right",
-        #          rotation_mode="anchor")
-        
-        # Loop over datum dimensions and create text annotations.
-        for ii in range(len(tickLabels)):
-            for j in range(len(tickLabels)):
-                ax[i].text(j, ii, round(datum[-ii-1, j], decimals), ha="center", va="center", 
-                        color="w", fontsize=7)
-        
-        ax[i].set_title("Mean parcel fidelity, " + appendStrings[i])
-        ax[i].set_xlabel('Modeling resolution')
-        ax[i].set_ylabel('Simulation resolution')
-    
-    fig.tight_layout()
-    plt.show()
 
 
 def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2, stripFirst0=False):
@@ -341,8 +313,8 @@ def heat_plot_exp(data, tickLabels, titleStrings, vmin=0.1, vmax=0.6, decimals=2
 ## Mean fidelity values. 
 # Method 1
 meth1Strings = ['Mean fidelity, method1,\n exponent ' + str(exponent) for exponent in exponents]
-vmin1 = np.min(means_meth1)
 vmax1 = np.max(means_meth1)
+vmin1 = np.min(means_meth1)
 heat_plot_exp(means_meth1, resolutions, meth1Strings, vmin=vmin1, vmax=vmax1, stripFirst0=True)
 
 # Method 2
