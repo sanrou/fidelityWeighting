@@ -14,16 +14,15 @@ import matplotlib.colors as mcolors
 from fidelityOpMinimal import fidelity_estimation, make_series_paired, source_fid_to_weights
 
 
-"""Load source identities, forward and inverse operators from csv. """
-subjectPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\sub (1)\\'
+"""Load source identities, forward and inverse operators. """
+subjectPath = 'C:\\temp\\fWeighting\\fwSubjects_p\\sub (1)\\'
 
-sourceIdPattern = '\\sourceIdentities_parc2018yeo7_200.csv'
-sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_200.csv'
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_200.npy'
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_200.npy'
 savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaefer200 "
-forwardPattern  = '\\forwardOperatorMEEG.csv'
-inversePattern  = '\\inverseOperatorMEEG.csv'
+forwardPattern  = '\\forwardOperatorMEEG.npy'
+inversePattern  = '\\inverseOperatorMEEG.npy'
     
-delimiter = ';'
 n_samples = 1000
 n_cut_samples = 40
 widths = np.arange(5, 6)
@@ -106,10 +105,10 @@ fileForwardOperator  = glob.glob(subjectPath + forwardPattern)[0]
 fileInverseOperator  = glob.glob(subjectPath + inversePattern)[0]
 fileSourceFidelities = glob.glob(subjectPath + sourceFidPattern)[0]
 
-identities = np.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
-forward = np.matrix(np.genfromtxt(fileForwardOperator, dtype='float', delimiter=delimiter))        # sensors x sources
-inverse = np.matrix(np.genfromtxt(fileInverseOperator, dtype='float', delimiter=delimiter))        # sources x sensors
-sourceFids = np.genfromtxt(fileSourceFidelities, dtype='float', delimiter=delimiter)    # sources
+identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+forward = np.matrix(np.load(fileForwardOperator))        # sensors x sources
+inverse = np.matrix(np.load(fileInverseOperator))        # sources x sensors
+sourceFids = np.load(fileSourceFidelities)    # sources
 
 weights = source_fid_to_weights(sourceFids, exponent=exponent, normalize=normalize, 
                                 inverse=inverse, identities=identities, flips=flips)

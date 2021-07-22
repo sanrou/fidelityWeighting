@@ -16,16 +16,16 @@ import pandas as pd
 from fidelityOpMinimal import fidelity_estimation, make_series_paired, source_fid_to_weights
 
 
-"""Load source identities, forward and inverse operators from csv. """
-subjectsPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
+"""Load source identities, forward and inverse operators from npy. """
+subjectsPath = 'C:\\temp\\fWeighting\\fwSubjects_p\\'
 
-sourceIdPattern = '\\sourceIdentities_parc2018yeo7_100.csv'
-sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_100.csv'
-savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaefer100 "
-forwardPattern  = '\\forwardOperatorMEEG.csv'
-inversePattern  = '\\inverseOperatorMEEG.csv'
-    
-delimiter = ';'
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_XYZ.npy'   # XYZ is replaced below.
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_XYZ.npy'
+savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaeferXYZ "
+forwardPattern  = '\\forwardOperatorMEEG.npy'
+inversePattern  = '\\inverseOperatorMEEG.npy'
+XYZto = '100'
+
 n_samples = 10000
 n_cut_samples = 40
 widths = np.arange(5, 6)
@@ -40,7 +40,10 @@ savePDFs = True
 tightLayout = True
 
 
-
+""" Replace XYZ """
+sourceIdPattern = sourceIdPattern.replace('XYZ', XYZto)
+sourceFidPattern = sourceFidPattern.replace('XYZ', XYZto)
+savePathBase = savePathBase.replace('XYZ', XYZto)
 
 
 def get_tp_fp_rates(cp_PLV, truth_matrix):
@@ -107,7 +110,7 @@ if any('_Population' in s for s in subjects):
 subjectFolder = os.path.join(subjectsPath, subjects[0])
 sourceIdFile = glob.glob(subjectFolder + sourceIdPattern)[0]
 
-identities = np.genfromtxt(sourceIdFile, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+identities = np.load(sourceIdFile)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
 
 n_parcels = get_n_parcels(identities)
 
@@ -119,7 +122,6 @@ tpOArray = np.zeros((len(subjects), n_bins), dtype=float)
 sizeArray = []
 
 ### Loop over subjects. Insert values to subject x parcels/bins arrays.
-# for run_i, subject in enumerate(tqdm(subjects)):    # Does this make the loop much slower?
 for run_i, subject in enumerate(tqdm(subjects)):
     ## Load files
     subjectFolder = os.path.join(subjectsPath, subject)
@@ -128,10 +130,14 @@ for run_i, subject in enumerate(tqdm(subjects)):
     fileInverseOperator  = glob.glob(subjectFolder + inversePattern)[0]
     fileSourceFidelities = glob.glob(subjectFolder + sourceFidPattern)[0]
     
-    identities = np.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
-    forward = np.matrix(np.genfromtxt(fileForwardOperator, dtype='float', delimiter=delimiter))        # sensors x sources
-    inverse = np.matrix(np.genfromtxt(fileInverseOperator, dtype='float', delimiter=delimiter))        # sources x sensors
-    sourceFids = np.genfromtxt(fileSourceFidelities, dtype='float', delimiter=delimiter)    # sources
+    identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+    forward = np.matrix(np.load(fileForwardOperator))  # sensors x sources
+    inverse = np.matrix(np.load(fileInverseOperator))  # sources x sensors
+    sourceFids = np.load(fileSourceFidelities)         # sources
+    # identities = np.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+    # forward = np.matrix(np.genfromtxt(fileForwardOperator, dtype='float', delimiter=delimiter))        # sensors x sources
+    # inverse = np.matrix(np.genfromtxt(fileInverseOperator, dtype='float', delimiter=delimiter))        # sources x sensors
+    # sourceFids = np.genfromtxt(fileSourceFidelities, dtype='float', delimiter=delimiter)    # sources
     
     weights = source_fid_to_weights(sourceFids, exponent=exponent, normalize=normalize, 
                                     inverse=inverse, identities=identities, flips=flips)
@@ -196,6 +202,9 @@ for run_i, subject in enumerate(tqdm(subjects)):
     tpOArray[run_i,:] = nearTPO
     sizeArray.append(len(identities))   # Approximate head size with number of sources.
     
+print(f'gain of fidelities. Mean/mean {np.mean(fidWArray)/np.mean(fidOArray)}')
+print(f'gain of fidelities. Mean(fidelityW/fidelityO) {np.mean(fidWArray/fidOArray)}')
+
 
 ### Statistics. 
 

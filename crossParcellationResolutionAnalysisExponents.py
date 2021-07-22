@@ -14,18 +14,16 @@ from tqdm import tqdm
 from scipy.linalg import norm
 from fidelityOpMinimal import make_series, source_fid_to_weights
 
-subjectsFolder = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
-forwardPattern = '\\forwardOperatorMEEG.csv'
-inversePattern = '\\inverseOperatorMEEG.csv'
-sourceIdPattern = '\\sourceIdentities_parc2018yeo7_XYZ.csv'
-sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_XYZ.csv'  
+subjectsFolder = 'C:\\temp\\fWeighting\\fwSubjects_p\\'
+forwardPattern = '\\forwardOperatorMEEG.npy'
+inversePattern = '\\inverseOperatorMEEG.npy'
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_XYZ.npy'
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_XYZ.npy'  
 
 resolutions = ['100', '200', '400', '597', '775', '942']
 n_samples = 2000 
 # exponents = [0, 1, 2, 3, 4]
 exponents = [0, 1, 2, 4, 8, 16, 32]
-
-delimiter = ';'
 
 saveArrays = False  # Saves plv arrays if set to true as .npy files to the active folder.
 
@@ -181,19 +179,17 @@ for i, subject in enumerate(tqdm(subjects)):
     fileForwardOperator  = glob.glob(subjectFolder + forwardPattern)[0]
     fileInverseOperator  = glob.glob(subjectFolder + inversePattern)[0]
     
-    forwards.append(np.matrix(np.genfromtxt(fileForwardOperator, 
-                              dtype='float', delimiter=delimiter)))        # sensors x sources
-    invOps.append(np.matrix(np.genfromtxt(fileInverseOperator, 
-                              dtype='float', delimiter=delimiter)))        # sources x sensors
+    forwards.append(np.matrix(np.load(fileForwardOperator)))        # sensors x sources
+    invOps.append(np.matrix(np.load(fileInverseOperator)))        # sources x sensors
     
     # Loop over resolutions. Load source identities and weights.
     for ii, idPattern in enumerate(sourceIdPatterns):
         fileSourceIdentities = glob.glob(subjectFolder + idPattern)[0]
-        identities = np.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+        identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
         idArray[i].append(identities)
         
         fileSourceFid = glob.glob(subjectFolder + sourceFidPatterns[ii])[0]
-        sourceFidArray[i].append(np.genfromtxt(fileSourceFid, dtype=float, delimiter=delimiter))
+        sourceFidArray[i].append(np.load(fileSourceFid))
         
 
 maxResolution = max([int(res) for res in resolutions])

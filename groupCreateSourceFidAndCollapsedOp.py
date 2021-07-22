@@ -13,18 +13,16 @@ import time
 from tqdm import tqdm
 from fidelityOpMinimal import compute_weighted_operator, collapse_operator
 
-subjectsFolder = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
-forwardPattern = '\\forwardOperatorMEEG.csv'
-inversePattern = '\\inverseOperatorMEEG.csv'
-sourceIdPattern = '\\sourceIdentities_parc2018yeo7_XYZ.csv'     # XYZ will be replaced by resolution string(s).
-newPattern = 'sourceFidelities_MEEG_parc2018yeo7_XYZ.csv'   # Note that '.csv' is replaced by '_collapsed.csv' if saving collapsed operator.
+subjectsFolder = 'C:\\temp\\fWeighting\\fwSubjects_p\\'
+forwardPattern = '\\forwardOperatorMEEG.npy'
+inversePattern = '\\inverseOperatorMEEG.npy'
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_XYZ.npy'     # XYZ will be replaced by resolution string(s).
+newPattern = 'sourceFidelities_MEEG_parc2018yeo7_XYZ.npy'   # Note that '.npy' is replaced by '_collapsed.npy' if saving collapsed operator.
 resolutions = ['100', '200', '400', '597', '775', '942']
 saveCollapsed = False   # If true, save a collapsed weighted inverse operator (parcels x sensors) with normal weighted inverse operator (sources x sensors).
 sourceFlip = False  # If true, flip sources. Used if saving collapsed inverse operators. Sign will be saved on source fidelities regardless of this.
 parcelFlip = False  # If true, flip whole parcels. Not recommended.
 exponent = 2    # Weighting exponent. Weight = sign * (real(cPLV)**exponent). Used if saving collapsed inverse operators.
-
-delimiter = ';'
 
 
 """ Build resolution patterns. Replaces XYZ in sourceIdPattern and newPattern 
@@ -56,16 +54,13 @@ for i, subject in enumerate(tqdm(subjects)):
     fileForwardOperator  = glob.glob(subjectFolder + forwardPattern)[0]
     fileInverseOperator  = glob.glob(subjectFolder + inversePattern)[0]
     
-    forward = np.matrix(np.genfromtxt(fileForwardOperator, 
-                              dtype='float', delimiter=delimiter))        # sensors x sources
-    inverse = np.matrix(np.genfromtxt(fileInverseOperator, 
-                               dtype='float', delimiter=delimiter))       # sources x sensors
+    forward = np.matrix(np.load(fileForwardOperator))        # sensors x sources
+    inverse = np.matrix(np.load(fileInverseOperator))       # sources x sensors
     
     for ii, idPattern in enumerate(sourceIdPatterns):
         fileSourceIdentities = glob.glob(subjectFolder + idPattern)[0]
         
-        identities = np.genfromtxt(fileSourceIdentities, 
-                                  dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+        identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
         
         np.random.seed(0)
         inverse_w, weights, cplvs = compute_weighted_operator(forward, inverse, identities, 
@@ -77,7 +72,7 @@ for i, subject in enumerate(tqdm(subjects)):
         
         if saveCollapsed == True:
             collapsed_inv_w = collapse_operator(inverse_w, identities) 
-            fileWeightedInvCol = newPatterns[ii].replace('.csv', '_collapsed.csv')
+            fileWeightedInvCol = newPatterns[ii].replace('.npy', '_collapsed.npy')
             fileWeightedInvCol = os.path.join(subjectFolder, fileWeightedInvCol)
             np.savetxt(fileWeightedInvCol, collapsed_inv_w, delimiter=';')
             

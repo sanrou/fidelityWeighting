@@ -12,14 +12,11 @@ import glob
 import numpy as np
 import time
 
-subjectsFolder = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\'
-sourceIdPattern = '\\*parc2018yeo7_600.csv'
+subjectsFolder = 'K:\\palva\\fidelityWeighting\\fwSubjects_p\\'
+sourceIdPattern = '\\*parc2018yeo7_600.npy'
 oldPattern = 'parc2018yeo7_600'
 newPattern = 'parc2018yeo7_600_reduced'
 reducedPattern = 'parc2018yeo7_600_reducedParcels'
-
-delimiter = ';'
-
 
 
 ## Search folders in main folder. 
@@ -38,8 +35,7 @@ for i, subject in enumerate(subjects):
     # Load original source identities
     fileSourceIdentities = glob.glob(subjectFolder + sourceIdPattern)[0]
     
-    identities = np.genfromtxt(fileSourceIdentities, 
-                              dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+    identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
     
     """ Get maximum ID. Continuous IDs are not assumed for each subject, 
     but are at the population level. """
@@ -78,9 +74,9 @@ for i, identities in enumerate(sourceIdentities):
     for ii, missing in enumerate(missingIDs[::-1]):
         identities = [ID-1 if ID > missing else ID for ID in identities]
         
-    np.savetxt(fileSourceIDNew[i], identities, delimiter=delimiter)
+    np.save(fileSourceIDNew[i], identities)
     reducedFile = fileSourceIDNew[i].replace(newPattern, reducedPattern)
-    np.savetxt(reducedFile, list(missingIDs), delimiter=delimiter)
+    np.save(reducedFile, list(missingIDs))
     
 print('Parcel IDs set to -1: ' + str(np.sort(list(missingIDs))))
 

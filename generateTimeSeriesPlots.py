@@ -18,27 +18,23 @@ from fidelityOpMinimal import _compute_weights
 
 
 """ Set subject directory and file patterns. """
-dataPath = 'C:\\temp\\fWeighting\\csvSubjects_p\\sub (5)'
+dataPath = 'C:\\temp\\fWeighting\\fwSubjects_p\\sub (5)'
 # dataPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\sub (5)'
 
-fileSourceIdentities = glob.glob(dataPath + '\\sourceIdentities_parc68.csv')[0]
-fileForwardOperator  = glob.glob(dataPath + '\\forwardOperatorMEEG.csv')[0]
-fileInverseOperator  = glob.glob(dataPath + '\\inverseOperatorMEEG.csv')[0]
+fileSourceIdentities = glob.glob(dataPath + '\\sourceIdentities_parc68.npy')[0]
+fileForwardOperator  = glob.glob(dataPath + '\\forwardOperatorMEEG.npy')[0]
+fileInverseOperator  = glob.glob(dataPath + '\\inverseOperatorMEEG.npy')[0]
 
 """ Settings. """
-delimiter = ';'
 n_samples = 1000
 n_cut_samples = 40
 widths = np.arange(5, 6)
 
 
 ## Get subjects list, and first subject's number of parcels.
-identities = np.genfromtxt(fileSourceIdentities, 
-                                    dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
-forward = np.matrix(np.genfromtxt(fileForwardOperator, 
-                                    dtype='float', delimiter=delimiter))        # sensors x sources
-inverse = np.matrix(np.genfromtxt(fileInverseOperator, 
-                                    dtype='float', delimiter=delimiter))        # sources x sensors
+identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+forward = np.matrix(np.load(fileForwardOperator))        # sensors x sources
+inverse = np.matrix(np.load(fileInverseOperator))        # sources x sensors
 
 idSet = set(identities)                         # Get unique IDs
 idSet = [item for item in idSet if item >= 0]   # Remove negative values (should have only -1 if any)

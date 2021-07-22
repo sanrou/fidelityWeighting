@@ -24,7 +24,7 @@ savePDFs = False
 tightLayout = True
 
 ## Load files. fidXArrays created in fidGroupAnalysis.py. There saved with np.save().
-resolutions = ['100', '200', '400']
+resolutions = ['597', '775', '942']
 
 tpWArrays = []
 tpOArrays = []

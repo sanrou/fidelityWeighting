@@ -14,17 +14,15 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from fidelityOpMinimal import make_series, source_fid_to_weights
 
-subjectsFolder = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
-forwardPattern = '\\forwardOperatorMEEG.csv'
-inversePattern = '\\inverseOperatorMEEG.csv'
-sourceIdPattern = '\\sourceIdentities_parc2018yeo7_XYZ.csv'
-sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_XYZ.csv'
+subjectsFolder = 'C:\\temp\\fWeighting\\fwSubjects_p\\'
+forwardPattern = '\\forwardOperatorMEEG.npy'
+inversePattern = '\\inverseOperatorMEEG.npy'
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_XYZ.npy'
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_XYZ.npy'
 savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaefer "
 
 resolutions = ['100', '200', '400', '597', '775', '942']
 n_samples = 3000
-
-delimiter = ';'
 
 # Weighting options.
 exponent = 2
@@ -122,19 +120,18 @@ for i, subject in enumerate(tqdm(subjects)):
     fileForwardOperator  = glob.glob(subjectFolder + forwardPattern)[0]
     fileInverseOperator  = glob.glob(subjectFolder + inversePattern)[0]
     
-    forwards.append(np.matrix(np.genfromtxt(fileForwardOperator, 
-                              dtype='float', delimiter=delimiter)))        # sensors x sources
-    inverse = np.matrix(np.genfromtxt(fileInverseOperator, dtype='float', delimiter=delimiter))        # sources x sensors
+    forwards.append(np.matrix(np.load(fileForwardOperator)))        # sensors x sources
+    inverse = np.matrix(np.load(fileInverseOperator))        # sources x sensors
     invOps.append(inverse)
     
     # Loop over resolutions. Load source identities and weights. Get weighted inverse operators.
     for ii, idPattern in enumerate(sourceIdPatterns):
         fileSourceIdentities = glob.glob(subjectFolder + idPattern)[0]
-        identities = np.genfromtxt(fileSourceIdentities, dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+        identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
         idArray[i].append(identities)
         fileSourceFid = glob.glob(subjectFolder + sourceFidPatterns[ii])[0]
         
-        sourceFids = np.genfromtxt(fileSourceFid, dtype=float, delimiter=delimiter)
+        sourceFids = np.load(fileSourceFid)
         weights = source_fid_to_weights(sourceFids, exponent=exponent, normalize=normalize, 
                                     inverse=inverse, identities=identities, flips=flips)
         weightedInvOp = np.einsum('ij,i->ij', inverse, weights)     # Row-wise multiplication of the current inverse operator with weights.

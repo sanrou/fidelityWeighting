@@ -11,22 +11,28 @@ import os
 import glob
 import matplotlib.pyplot as plt
 
-from fidelityOpMinimal import (make_series_paired, make_series, collapse_operator)
+from fidelityOpMinimal import (make_series_paired, make_series, collapse_operator, 
+                               source_fid_to_weights)
 
 
 
-"""Load source identities, forward and inverse operators from csv. """
-subjectsPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\'
+"""Load source identities, forward and inverse operators. """
+subjectsPath = 'C:\\temp\\fWeighting\\fwSubjects_p\\'
 
-sourceIdPattern = '\\sourceId*200AFS.csv'    # For collapsing the forward operator.
-forwardPattern  = '\\*forward*MEEG.csv'     # Should be the at source space
-inversePattern  = '\\weighted_*MEEG_200AFS_noParcelFlip_collapsed.csv'     # Should be collapsed to parcel space. Could be the original, as the collapsing is fast. Though file reading is much faster with collapsed files.
+sourceIdPattern = '\\sourceIdentities_parc2018yeo7_200.npy'    # For collapsing forward and inverse operators.
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_200.npy'    
+forwardPattern  = '\\*forward*MEEG.npy'     # Should be at source space
+inversePattern  = '\\inverseOperatorMEEG.npy'     # Should be at source space.
 
-n_iterations = 100     # Takes about 35 minutes per subject with 1000 iterations with parc68.
-delimiter = ';'
+n_iterations = 100
 n_samples = 5000
 n_cut_samples = 40
 widths = np.arange(5, 6)
+
+# Source fidelity to weights settings
+exponent = 2
+normalize = True
+flips = False
 
 
 def get_precision_rates(cp_PLV, truth_matrix):
@@ -52,6 +58,13 @@ def find_nearest_index(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
     return idx
+
+
+def get_n_parcels(identities):
+    idSet = set(identities)                         # Get unique IDs
+    idSet = [item for item in idSet if item >= 0]   # Remove negative values (should have only -1 if any)
+    n_parcels = len(idSet)
+    return n_parcels
 
 
 # def get_nearest_tp_semi_bin(binArray, tpRate, fpRate):
@@ -140,10 +153,10 @@ if any('_Population' in s for s in subjects):
     subjects.remove('_Population')
 
 subjectFolder = os.path.join(subjectsPath, subjects[0])
-inverseFile = glob.glob(subjectFolder + inversePattern)[0]
+fileSourceIdentities = glob.glob(subjectFolder + sourceIdPattern)[0]
+identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
 
-inverse = np.genfromtxt(inverseFile, dtype='float64', delimiter=delimiter)         # Parcels x Sensors if the file is collapsed (should be)
-n_parcels = inverse.shape[0]    
+n_parcels = get_n_parcels(identities)
 
 ## Initialize arrays
 _, thresholds = get_precision_rates(np.ones((n_parcels, n_parcels-1)), 
@@ -157,17 +170,21 @@ for si, subject in enumerate(subjects):
     ## Load files
     subjectFolder = os.path.join(subjectsPath, subject)
     fileSourceIdentities = glob.glob(subjectFolder + sourceIdPattern)[0]
+    fileSourceFidelities = glob.glob(subjectFolder + sourceFidPattern)[0]
     fileForwardOperator  = glob.glob(subjectFolder + forwardPattern)[0]
     fileInverseOperator  = glob.glob(subjectFolder + inversePattern)[0]
     
-    identities = np.genfromtxt(fileSourceIdentities, 
-                                        dtype='int32', delimiter=delimiter)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
-    forward = np.matrix(np.genfromtxt(fileForwardOperator, 
-                                        dtype='float', delimiter=delimiter))        # sensors x parcels
-    inverse = np.matrix(np.genfromtxt(fileInverseOperator, 
-                                        dtype='float', delimiter=delimiter))        # parcels x sensors
+    identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+    sourceFids = np.load(fileSourceFidelities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+    forward = np.matrix(np.load(fileForwardOperator))        # sensors x parcels
+    inverse = np.matrix(np.load(fileInverseOperator))        # sources x sensors
     
-    n_parcels = inverse.shape[0]
+    n_parcels = get_n_parcels(identities)
+    
+    weights = source_fid_to_weights(sourceFids, exponent=exponent, normalize=normalize, 
+                                    inverse=inverse, identities=identities, flips=flips)
+    inverse = np.einsum('ij,i->ij', inverse, weights)
+    inverse = collapse_operator(inverse, identities, op_type='inverse')
     
     if si == 0:
         prior_n_parcels = n_parcels

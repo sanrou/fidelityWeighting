@@ -14,10 +14,8 @@ import time
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
-subjectsFolder = 'C:\\temp\\fWeighting\\csvSubjects_p\\'
-sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_200.csv'
-
-delimiter = ';'
+subjectsFolder = 'C:\\temp\\fWeighting\\fwSubjects_p\\'
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_200.npy'
 
 tightLayout = True
 savePDFs = False
@@ -38,8 +36,7 @@ for i, subject in enumerate(subjects):
     # Load source fidelities from file
     fileSourceFidelities = glob.glob(subjectFolder + sourceFidPattern)[0]
     
-    fidelities.append(np.trim_zeros(np.abs(np.genfromtxt(fileSourceFidelities, 
-                                           dtype='float32', delimiter=delimiter))))        # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+    fidelities.append(np.trim_zeros(np.abs(np.load(fileSourceFidelities))))        # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
     
 # Ravel fidelities.
 fidRavel = np.asarray([])
