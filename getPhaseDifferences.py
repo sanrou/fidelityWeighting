@@ -81,6 +81,7 @@ def source_phases(x, y, identities, phase_bin_edges):
     
     """ Get phase distribution. """
     phases = np.zeros(len(identities), dtype=float)
+    phases[:] = np.NaN
     for i, parcel in enumerate(identities): 
         if parcel>-1:
             phases[i] = np.angle(np.mean(np.ravel(y[i]) * np.ravel(np.conjugate(x[i]))))   # Phases of single sources

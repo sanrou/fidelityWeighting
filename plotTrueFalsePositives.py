@@ -8,7 +8,6 @@ Plot true and false positives from loaded arrays created in fidGroupAnalysis.py.
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 import pandas as pd
 
 
@@ -22,9 +21,10 @@ gainPlotEnd = 'TP FP Relative.pdf'
 subjectsOrigWeightEnd = 'TP FP Orig x Weighted scatter.pdf'
 savePDFs = False
 tightLayout = True
+drawLegends = True
 
 ## Load files. fidXArrays created in fidGroupAnalysis.py. There saved with np.save().
-resolutions = ['597', '775', '942']
+resolutions = ['100', '200', '400', '597', '775', '942']
 
 tpWArrays = []
 tpOArrays = []
@@ -53,7 +53,7 @@ def find_nearest_index(array, value):
 import matplotlib.pylab as pylab
 if tightLayout == True:
   params = {'legend.fontsize':'7',
-         'figure.figsize':(1.6, 1),
+         'figure.figsize':(1.6, 1.3),
          'axes.labelsize':'7',
          'axes.titlesize':'7',
          'xtick.labelsize':'7',
@@ -94,8 +94,8 @@ for i, resolution in enumerate(resolutions):
   # Original
   ax.plot(meansO.iloc[:,0], meansO.iloc[:,i+1], color=colors[i], linestyle=':', linewidth=1, label='Original ' + resolution)
 
-legend = ax.legend(loc='right', shadow=False)
-legend.get_frame()
+# legend = ax.legend(loc='right', shadow=False)
+# legend.get_frame()
 
 # ax.fill_between(meansW.iloc[:,0], meansW.iloc[:,1]-stdsW.iloc[:,0], meansW.iloc[:,1]+stdsW.iloc[:,0], color='black', alpha=0.5)
 # ax.fill_between(meansO.iloc[:,0], meansO.iloc[:,1]-stdsO.iloc[:,0], meansO.iloc[:,1]+stdsO.iloc[:,0], color='black', alpha=0.3)
@@ -108,6 +108,7 @@ ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
 plt.yticks(np.array([0., 0.5, 1]))
+plt.xticks(np.array([0., 0.5, 1]))
 
 plt.tight_layout(pad=0.1)
 plt.show()
@@ -135,8 +136,9 @@ for i, resolution in enumerate(resolutions):
 
 ax.plot([0, 1], [100, 100], color='black', linestyle='-', linewidth=0.3)  # Set a horizontal line at 100 %. [X X] [Y, Y]
 
-legend = ax.legend(loc='best', shadow=False)
-legend.get_frame()
+if drawLegends == True:
+  legend = ax.legend(loc='best', shadow=False)
+  legend.get_frame()
 
 # ax.fill_between(meansRR.iloc[:,0], meansRR.iloc[:,1]-stdsRR.iloc[:,1],
 #                 meansRR.iloc[:,1]+stdsRR.iloc[:,1], color='black', alpha=0.5)
@@ -149,7 +151,9 @@ ax.spines['left'].set_visible(True)
 ax.spines['right'].set_visible(False)
 
 plt.tight_layout(pad=0.1)
-plt.ylim(90, 140)
+plt.yticks(np.array([100, 110, 120, 130]))
+plt.ylim(90, 130)
+plt.xticks(np.array([0., 0.5, 1]))
 plt.show()
 
 if savePDFs == True:
@@ -180,5 +184,18 @@ if savePDFs == True:
 
 # if savePDFs == True:
 #   fig.savefig(savePathBase + 'True positive rates Orig x Weighted scatter by parcel.pdf', format='pdf')
+
+
+
+### True positive rates at 15 % false positive rate
+
+for i, resolution in enumerate(resolutions):
+  print(f'Relative gain at 15 % FPR with {resolution}: {meansRR.iloc[:,i+1][find_nearest_index(binArray[1:-1], 0.15)]}')
+
+
+
+
+
+
 
 

@@ -15,11 +15,11 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
 subjectsFolder = 'C:\\temp\\fWeighting\\fwSubjects_p\\'
-sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_200.npy'
+sourceFidPattern = '\\sourceFidelities_MEEG_parc2018yeo7_100.npy'
 
 tightLayout = True
 savePDFs = False
-savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaefer200 "
+savePathBase = "C:\\temp\\fWeighting\\plotDump\\schaefer100 "
 
 """ Search folders in main folder. """
 subjects = next(os.walk(subjectsFolder))[1]
@@ -35,8 +35,8 @@ for i, subject in enumerate(subjects):
     
     # Load source fidelities from file
     fileSourceFidelities = glob.glob(subjectFolder + sourceFidPattern)[0]
-    
-    fidelities.append(np.trim_zeros(np.abs(np.load(fileSourceFidelities))))        # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
+    sourceFidelities = np.abs(np.load(fileSourceFidelities))
+    fidelities.append(sourceFidelities[sourceFidelities!=0])        # Source length vector - zeros. Sources not belonging to a parcel expected to have fidelity value 0.
     
 # Ravel fidelities.
 fidRavel = np.asarray([])
@@ -121,7 +121,7 @@ ax.yaxis.set_major_formatter(PercentFormatter(xmax=sum(counts)))
 # update the view limits and ticks to sensible % values
 locs, labels = plt.yticks()
 cmulPer = np.sum(counts)
-plt.yticks(np.array([0., 0.05, 0.1, 0.15, 0.2, 0.25, 0.3])*cmulPer)
+plt.yticks(np.array([0., 0.05, 0.1, 0.15, 0.2, 0.25])*cmulPer)
 # ax.set_ylim(0, 0.2*cmulPer)      # Preset y-limits
 
 ax.set_ylabel('n sources (%)')
@@ -185,39 +185,7 @@ else:
 pylab.rcParams.update(params)
 
 colors = ['red', 'magenta', 'darkcyan']
-
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-
-## All sources
-# Draw histogram. Get counts for normalization.
-exampleFids = [fidelities[ind] for ind in exampleInds]
-counts, bins, bars = ax.hist(exampleFids, bins=binEdges, density=True, color=colors, alpha=.8, label=colors)  
-
-# Format y-axis to percentage. density=True does not give sum of 1 values. So divide by sum of densities. Works.
-ax.yaxis.set_major_formatter(PercentFormatter(xmax=np.sum(counts[0])))
-
-# Set axis invisible
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-# ax.spines['left'].set_visible(False)
-# ax.spines['bottom'].set_visible(False)
-
-# update the view limits and ticks to sensible % values
-locs, labels = plt.yticks()
-cmulPer = np.sum(counts[0])
-plt.yticks(np.array([0., 0.05, 0.1, 0.15, 0.2, 0.25, 0.3])*cmulPer)
-# ax.set_ylim(0, 0.25*cmulPer)      # Preset y-limits
-plt.xticks(np.array([0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8, 0.9]))
-
-ax.set_ylabel('n sources (%)')
-ax.set_xlabel('Source fidelity')
-
-plt.tight_layout(pad=0.1)
-plt.show()
-
-if savePDFs == True:
-  fig.savefig(savePathBase + 'Examples Source Fidelity.pdf', format='pdf')
+colors = colors[slice(len(exampleInds))]
 
 
 
@@ -234,7 +202,7 @@ for i, multiplier in enumerate(multipliers):
 colorsFids[exampleInds[0]] = [1,0,0]
 
 fig = plt.figure()
-ax = fig.add_subplot(1, 2, 1)
+ax = fig.add_subplot(1, 1, 1)
 
 # Draw histogram. Get counts for normalization.
 counts, bins, bars = ax.hist(fidelities, bins=binEdges, density=True, facecolor='gray', alpha=1, histtype='step', color=colorsFids)  
@@ -244,17 +212,6 @@ left = np.array(bins[:-1])
 right = np.array(bins[1:])
 bottom = np.zeros(len(left))
 top = bottom + counts
-
-# # Histogram needs a (numrects x numsides x 2) numpy array for the path helper
-# # function to build a compound path (from https://matplotlib.org/3.2.1/gallery/misc/histogram_path.html#sphx-glr-gallery-misc-histogram-path-py)
-# XY = np.array([[left, left, right, right], [bottom, top, top, bottom]]).T
-
-# # Get the Path object
-# barpath = path.Path.make_compound_path_from_polys(XY)
-
-# # make a patch out of it
-# patch = patches.PathPatch(barpath)
-# ax.add_patch(patch)
 
 # update the view limits
 ax.set_xlim(left[0], right[-1])
@@ -284,5 +241,47 @@ plt.xticks(np.array([0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8, 0.9]))
 plt.tight_layout(pad=0.1)
 plt.show()
 
+if savePDFs == True:
+  fig.savefig(savePathBase + 'Source Fidelities per subject.pdf', format='pdf')
 
 
+
+### Range of mean source fidelities across subjects
+print(f'Min mean source fidelity: {np.min(meanSFids)}. Max mean fidelity: {np.max(meanSFids)}')
+
+
+
+
+
+# fig = plt.figure()
+# ax = fig.add_subplot(1, 1, 1)
+
+# ## All sources
+# # Draw histogram. Get counts for normalization.
+# exampleFids = [fidelities[ind] for ind in exampleInds]
+# counts, bins, bars = ax.hist(exampleFids, bins=binEdges, density=True, color=colors, alpha=.8, label=colors)  
+
+# # Format y-axis to percentage. density=True does not give sum of 1 values. So divide by sum of densities. Works.
+# ax.yaxis.set_major_formatter(PercentFormatter(xmax=np.sum(counts[0])))
+
+# # Set axis invisible
+# ax.spines['top'].set_visible(False)
+# ax.spines['right'].set_visible(False)
+# # ax.spines['left'].set_visible(False)
+# # ax.spines['bottom'].set_visible(False)
+
+# # update the view limits and ticks to sensible % values
+# locs, labels = plt.yticks()
+# cmulPer = np.sum(counts[0])
+# plt.yticks(np.array([0., 0.05, 0.1, 0.15, 0.2, 0.25, 0.3])*cmulPer)
+# # ax.set_ylim(0, 0.25*cmulPer)      # Preset y-limits
+# plt.xticks(np.array([0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8, 0.9]))
+
+# ax.set_ylabel('n sources (%)')
+# ax.set_xlabel('Source fidelity')
+
+# plt.tight_layout(pad=0.1)
+# plt.show()
+
+# if savePDFs == True:
+#   fig.savefig(savePathBase + 'Examples Source Fidelity.pdf', format='pdf')

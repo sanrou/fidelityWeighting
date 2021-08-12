@@ -127,29 +127,6 @@ def parcel_multi_plv(x, y, identitiesX, identitiesY):
     return xFidelities, yFidelities, cplvs, uniquePairs
 
 
-def exp2weightToNew(weights, exponent, identities, unsign=False):
-  """ From weight = Sign x SourceFidelity**2 to (Sign?) x SourceFidelity**Exponent.
-      Keeps parcel weight normals as same. """
-  sourceFids = np.abs(weights)**(1/2)
-  newWeights = sourceFids**exponent
-  newWeights = newWeights if unsign==True else np.sign(weights)*newWeights
-  
-  id_set = set(identities)
-  id_set = [item for item in id_set if item >= 0]   #Remove negative values (should have only -1 if any)
-  n_parcels = len(id_set)  # Number of unique IDs with ID >= 0
-  
-  newWeights_normalized = 1*newWeights
-  for parcel in range(n_parcels): # Normalize parcel level norms.
-    # Index sources belonging to parcel
-    ii = [i for i, source in enumerate(identities) if source == parcel]
-
-    # Normalize per parcel.
-    newWeights_normalized[ii] /= norm(newWeights[ii]) / norm(weights[ii])
-
-  return newWeights_normalized
-
-
-
 sourceIdPatterns = []
 sourceFidPatterns = []
 for i, resolution in enumerate(resolutions):
@@ -213,7 +190,6 @@ for i1, resolution1 in enumerate(resolutions):
         for iexp, exponent in enumerate(exponents):
           newWeights = source_fid_to_weights(sourceFidArray[isub][i2], exponent=exponent, 
                                 normalize=True, inverse=invOps[isub], identities=idArray[isub][i2])
-          # newWeights = exp2weightToNew(sourceFidArray[isub][i2], exponent, idArray[isub][i2], unsign=True)  
           weightedInvOp = np.einsum('ij,i->ij', invOps[isub], newWeights)
           modeledSourceSeriesW = np.dot(weightedInvOp, np.dot(forwards[isub],simulatedSourceSeries))
               
