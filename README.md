@@ -7,6 +7,7 @@ with Python 3 to be used with cortical parcellations (see e.g. [1–3])
 in neurophysiological research. 
 Fidelity: how well simulated source activity is replicated after
 forward then inverse modeling the source activity.
+The code can also be used to estimate how well your source modeling performs.
 
 ## Dependencies
 
@@ -17,8 +18,15 @@ For the minimal version:
 MNE-Python is also supported, and requires:
 - MNE-Python https://martinos.org/mne/stable/index.html.
 - PySurfer https://pysurfer.github.io/
+- Matplotlib
+
+# Dataset
+https://doi.org/10.5281/zenodo.5291628 has subject files that are used in the development of the code and in the coming article.
 
 # References
+
+## Fidelity weighting publication
+In works.
 
 ## Cortical parcellations
 
