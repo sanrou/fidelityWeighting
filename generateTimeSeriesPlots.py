@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Oct 22 10:56:21 2020
-
+Create plots of time series with example sources.
 @author: rouhinen
 """
 
@@ -12,14 +12,11 @@ from scipy import signal, stats
 import matplotlib.pyplot as plt
 import glob
 
-import sys
-sys.path.insert(1, "E:\\bluu\git\\fidelityWeighting\\fidelityWeighting")
 from fidelityOpMinimal import _compute_weights
 
 
 """ Set subject directory and file patterns. """
 dataPath = 'C:\\temp\\fWeighting\\fwSubjects_p\\sub (5)'
-# dataPath = 'K:\\palva\\fidelityWeighting\\csvSubjects_p\\sub (5)'
 
 fileSourceIdentities = glob.glob(dataPath + '\\sourceIdentities_parc68.npy')[0]
 fileForwardOperator  = glob.glob(dataPath + '\\forwardOperatorMEEG.npy')[0]
@@ -31,7 +28,7 @@ n_cut_samples = 40
 widths = np.arange(5, 6)
 
 
-## Get subjects list, and first subject's number of parcels.
+## Get subjects list, and number of parcels.
 identities = np.load(fileSourceIdentities)         # Source length vector. Expected ids for parcels are 0 to n-1, where n is number of parcels, and -1 for sources that do not belong to any parcel.
 forward = np.matrix(np.load(fileForwardOperator))        # sensors x sources
 inverse = np.matrix(np.load(fileInverseOperator))        # sources x sensors
@@ -224,6 +221,18 @@ for ii, parcel in enumerate(selections):
 
 
 """ Plot time series of subselections. Figure 2. """
+## Change weighted source signal so that smaller weight means smaller amplitude, and larger weight larger amplitude.
+# As weights can get large, multiply sources by set values instead of actual weights. Sort sources by weights and apply set weights.
+fakeWeights = np.linspace(0.2, 1.8, len(sources[0]))
+sourceSeries_nwf = sourceSeries_nw.copy()
+for ii, parcel in enumerate(selections):
+  exampleSources = sources[ii]
+  # sort by weights
+  ind = np.argsort(abs(weights[exampleSources]))                  # Sorted by weight
+  sourceSeries_nwf[exampleSources,:] = np.einsum('ij,i->ij',sourceSeries_nw[exampleSources,:], 
+                                        fakeWeights[ind]*np.sign(weights[exampleSources][ind]))
+
+
 ## Compute sums of sources selected for visualization.
 # Init summation arrays
 sumArray_n = np.zeros((len(selections), n_samples), dtype=float)    # Original inv op
@@ -270,7 +279,7 @@ for ii, parcel in enumerate(selections):
     for i, source in enumerate(sources[ii]):
         ax.plot(np.ravel(np.real(parcelSeries_n[parcels[ii], timeStart:timeEnd]))-2*i, 
                 color=colors[ii][i], linestyle='-', label='Simulated, parcel' + str(parcels[ii]))
-        ax.plot(np.ravel(np.real(sourceSeries_nw[source, timeStart:timeEnd])) -2*i, 
+        ax.plot(np.ravel(np.real(sourceSeries_nwf[source, timeStart:timeEnd])) -2*i, 
                 color=colors[ii][i], linestyle=':', linewidth=1, label='Weighted inv op, source' + str(source))
     
     ax.set_ylabel('Source series')
